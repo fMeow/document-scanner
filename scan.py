@@ -10,7 +10,7 @@ import numpy as np
 from skimage.transform import hough_line_peaks
 from matplotlib import cm
 from matplotlib import pyplot as plt
-from doc_scanner.scanner import filter_and_edge_detect
+from doc_scanner.scanner import filter_and_edge_detect, edge_selection
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--show", dest='show', default='mpl')
@@ -49,7 +49,7 @@ for file in files:
     if options.show == 'mpl':
         plt.clf()
         plt.ion()
-        ax = plt.subplot(2, 3, 1)
+        ax = plt.subplot(3, 3, 1)
         ax.imshow(image)
         ax.set_title("Original")
 
@@ -76,7 +76,7 @@ for file in files:
                           500, 300],
                   )
         ax.set_title('Hough transform(Intensity)')
-        ax.set_xlabel('Angles (degrees)')
+        # ax.set_xlabel('Angles (degrees)')
         ax.set_ylabel('Distance (pixels)')
         ax.axis('image')
 
@@ -86,20 +86,13 @@ for file in files:
                           500, 300],
                   )
         ax.set_title('Hough transform(Saturation)')
-        ax.set_xlabel('Angles (degrees)')
+        # ax.set_xlabel('Angles (degrees)')
         ax.set_ylabel('Distance (pixels)')
         ax.axis('image')
 
         ax = plt.subplot(3, 3, 8)
         ax.imshow(image)
-        ax.set_title("Intensity hough lines")
-        result = zip(*hough_line_peaks(intensity_result.hough.h, intensity_result.hough.theta,
-                                       intensity_result.hough.distance, min_distance=10, min_angle=50,
-                                       threshold=0.5 * intensity_result.hough.h.max(), num_peaks=np.inf))
-        for _, angle, dist in result:
-            y0 = (dist - 0 * np.cos(angle)) / np.sin(angle)
-            y1 = (dist - image.shape[1] * np.cos(angle)) / np.sin(angle)
-            ax.plot((0, image.shape[1]), (y0, y1), '-r')
+        edge_selection(intensity_result, ax, image)
         ax.set_xlim((0, image.shape[1]))
         ax.set_ylim((image.shape[0], 0))
         ax.set_axis_off()
@@ -107,14 +100,7 @@ for file in files:
 
         ax = plt.subplot(3, 3, 9)
         ax.imshow(image)
-        ax.set_title("Intensity hough lines")
-        result = zip(*hough_line_peaks(saturation_result.hough.h, saturation_result.hough.theta,
-                                       saturation_result.hough.distance, min_distance=10, min_angle=50,
-                                       threshold=0.5 * saturation_result.hough.h.max(), num_peaks=np.inf))
-        for _, angle, dist in result:
-            y0 = (dist - 0 * np.cos(angle)) / np.sin(angle)
-            y1 = (dist - image.shape[1] * np.cos(angle)) / np.sin(angle)
-            ax.plot((0, image.shape[1]), (y0, y1), '-r')
+        edge_selection(saturation_result, ax, image)
         ax.set_xlim((0, image.shape[1]))
         ax.set_ylim((image.shape[0], 0))
         ax.set_axis_off()
