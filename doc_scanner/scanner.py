@@ -90,11 +90,13 @@ def filter_and_edge_detect(image, kernel_size=15, intensity_lower=0, intensity_u
 
 def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
     lines = hough_line_peaks(result.hough.h, result.hough.theta, result.hough.distance, min_distance=10, min_angle=50,
-                             threshold=0.6 * result.hough.h.max(), num_peaks=np.inf)
+                             threshold=0.49 * result.hough.h.max(), num_peaks=np.inf)
     lines = pd.DataFrame(np.array(lines).T, columns=['hits', 'angle', 'intercept'])
     _divide_line_orientation(lines)
     intersections = _find_intersections(lines, result.contour_image)
-    # corners = _find_corner(intersections)
+    corners = _find_corner(intersections)
+    if len(corners) > 0:
+        edges = pd.DataFrame(corners).sort_values(by=['score']).iloc[0]
     # print(len(corners))
 
     if ax and image is not None:
@@ -115,6 +117,10 @@ def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
             ax.plot(x, y, 'bx', ms=20)
         except KeyError:
             pass
+
+        if len(corners) > 0:
+            points = np.array(edges.drop('score').values.tolist())
+            ax.plot(points[:, 0], points[:, 1], 'cx', ms=20)
     return lines
 
 
@@ -269,17 +275,25 @@ def _find_corner(intersections, threshold=0.4):
     start = count.idxmin()
     vertical, horizontal = start.split('-')
     for _, point in corner[start].iterrows():
-        label_ov = corner['{}-{}'.format(_revert_orientation(vertical), horizontal)]
-        possible_v = label_ov[label_ov['line_v'] == point['line_v']]
+        label_ov = '{}-{}'.format(_revert_orientation(vertical), horizontal)
+        ov = corner[label_ov]
+        possible_v = ov[ov['line_v'] == point['line_v']]
 
-        label_oh = corner['{}-{}'.format(vertical, _revert_orientation(horizontal))]
-        possible_h = label_oh[label_oh['line_h'] == point['line_h']]
+        label_oh = '{}-{}'.format(vertical, _revert_orientation(horizontal))
+        oh = corner[label_oh]
+        possible_h = oh[oh['line_h'] == point['line_h']]
 
         for (_, v), (_, h) in itertools.product(possible_v.iterrows(), possible_h.iterrows()):
-            label_o = corner['{}-{}'.format(_revert_orientation(vertical), _revert_orientation(horizontal))]
-            for _, point_o in label_o.iterrows():
+
+            label_o = '{}-{}'.format(_revert_orientation(vertical), _revert_orientation(horizontal))
+            o = corner[label_o]
+            for _, point_o in o.iterrows():
                 if point_o['line_h'] == v['line_h'] and point_o['line_v'] == h['line_v']:
-                    result.append(dict(start=point, opposite_v=v, opposite_h=h, opposite=point_o))
+                    score = (point[start] + v[label_ov] + h[label_oh] + point_o[label_o]) / 4
+                    result.append(
+                        {start: point.loc[['x', 'y']].values.tolist(), label_ov: v.loc[['x', 'y']].values.tolist(),
+                         label_oh: h.loc[['x', 'y']].values.tolist(), label_o: point_o.loc[['x', 'y']].values.tolist(),
+                         'score': score})
 
     return result
 
