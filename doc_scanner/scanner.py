@@ -4,6 +4,7 @@ import pandas as pd
 import itertools
 from dataclasses import dataclass
 from skimage.transform import hough_line_peaks, hough_line
+from doc_scanner.math_utils import points2line, find_point_polar, intersection
 
 
 @dataclass
@@ -141,13 +142,6 @@ def _divide_line_orientation(lines: pd.DataFrame, err=np.pi * 1 / 12, inplace: b
     return out
 
 
-def find_point_polar(line: pd.DataFrame, x: tuple):
-    angle = line['angle']
-    dist = line['intercept']
-    y = tuple(map(lambda i: (dist - i * np.cos(angle)) / np.sin(angle), x))
-    return y
-
-
 def _pairwise_intersection(horizontal_polar, vertical_polar, contour_image=None, along_length=50):
     """ Compute connectivity given a horizontal line and vertical line in polar coordination.
     1. convert lines to cartesian coordination
@@ -161,41 +155,6 @@ def _pairwise_intersection(horizontal_polar, vertical_polar, contour_image=None,
     :return:
     """
 
-    def line(points: pd.DataFrame):
-        """
-        compute Ax+By+C=0 given point (x1,y1) and (x2,y2)
-        :param p1:
-        :param p2:
-        :return:
-        """
-        if len(points) != 2:
-            raise ValueError('points should only exactly 2 points')
-        elif 'x' not in points.columns or 'y' not in points.columns:
-            raise ValueError('points should contain columns x and y')
-
-        a = points['y'].diff()[1]
-        b = -points['x'].diff()[1]
-        c = points.loc[0, 'x'] * points.loc[1, 'y'] - points.loc[1, 'x'] * points.loc[0, 'y']
-        # a = (p1[1] - p2[1])
-        # b = (p2[0] - p1[0])
-        # c = (p1[0] * p2[1] - p2[0] * p1[1])
-        return pd.DataFrame([[a, b, c]], columns=['A', 'B', 'C'])
-
-    def intersection(L1, L2):
-        """
-        Compute intersection given two lines.
-        L=(A,B,C) while Ax+By=C
-        :param L1:
-        :param L2:
-        :return:
-        """
-        d = (L1['A'] * L2['B'] - L1['B'] * L2['A']).iloc[0]
-        dx = (L1['C'] * L2['B'] - L1['B'] * L2['C']).iloc[0]
-        dy = (L1['A'] * L2['C'] - L1['C'] * L2['A']).iloc[0]
-        x = dx / d
-        y = dy / d
-        return pd.DataFrame([[x, y]], columns=['x', 'y'])
-
     if contour_image is not None:
         x = (0, contour_image.shape[1])
     else:
@@ -207,7 +166,7 @@ def _pairwise_intersection(horizontal_polar, vertical_polar, contour_image=None,
     horizontal_line_points = pd.DataFrame(list(zip(x, y_h)), columns=['x', 'y'])
     vertical_line_points = pd.DataFrame(list(zip(x, y_v)), columns=['x', 'y'])
 
-    point = intersection(line(horizontal_line_points), line(vertical_line_points))
+    point = intersection(points2line(horizontal_line_points), points2line(vertical_line_points))
 
     return point
 
