@@ -13,12 +13,14 @@ def intersection(L1: pd.DataFrame, L2: pd.DataFrame):
     """
     if not {'A', 'B', 'C'}.issubset(set(L1.columns)) or not {'A', 'B', 'C'}.issubset(set(L2.columns)):
         raise ValueError('L1 and L2 should both contains columns A, B and C, which depicts lines in general form')
-    d = (L1['A'] * L2['B'] - L1['B'] * L2['A']).iloc[0]
-    dx = (L1['C'] * L2['B'] - L1['B'] * L2['C']).iloc[0]
-    dy = (L1['A'] * L2['C'] - L1['C'] * L2['A']).iloc[0]
+    d = (L1['A'] * L2['B'] - L1['B'] * L2['A'])
+    dx = (L1['C'] * L2['B'] - L1['B'] * L2['C'])
+    dy = (L1['A'] * L2['C'] - L1['C'] * L2['A'])
     x = dx / d
     y = dy / d
-    return pd.DataFrame([[x, y]], columns=['x', 'y'])
+    points = pd.DataFrame()
+    points = points.assign(x=x, y=y)
+    return points
 
 
 def points2line(points: pd.DataFrame):
@@ -49,7 +51,7 @@ def find_point_polar(line: pd.DataFrame, x: tuple):
     return y
 
 
-def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame):
+def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame, width=2):
     """Uses Xiaolin Wu's line algorithm to interpolate all of the pixels along a
     straight line, given two points (x0, y0) and (x1, y1)
 
@@ -108,10 +110,10 @@ def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame):
     # Loop between the first x coordinate and the second x coordinate, interpolating the y coordinates
     for x in np.arange(xpxl0 + 1, xpxl1):
         if steep:
-            pixels.extend([(np.floor(interpolated_y), x), (np.floor(interpolated_y) + 1, x)])
+            pixels.extend([(np.floor(interpolated_y) + i, x) for i in range(1 - width, width + 1)])
 
         else:
-            pixels.extend([(x, np.floor(interpolated_y)), (x, np.floor(interpolated_y) + 1)])
+            pixels.extend([(x, np.floor(interpolated_y) + i) for i in range(1 - width, width + 1)])
 
         interpolated_y += gradient
 

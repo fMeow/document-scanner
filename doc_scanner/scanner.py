@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import pandas as pd
 import itertools
 from dataclasses import dataclass
@@ -8,9 +9,9 @@ from doc_scanner.math_utils import points2line, find_point_polar, intersection, 
 
 @dataclass
 class HoughResult:
-    h: pd.np.array
-    theta: pd.np.array
-    distance: pd.np.array
+    h: np.array
+    theta: np.array
+    distance: np.array
 
 
 @dataclass
@@ -21,14 +22,14 @@ class ProcessingResult:
     contours is opencv result of all contours
     hough is the result of line hough transformation in image-scikit
     """
-    blurred: pd.np.array
-    edges: pd.np.array
-    contour_image: pd.np.array
-    hist_equalized: pd.np.array
+    blurred: np.array
+    edges: np.array
+    contour_image: np.array
+    hist_equalized: np.array
 
-    hist: pd.np.array
+    hist: np.array
 
-    contours: pd.np.array
+    contours: np.array
 
     hough: HoughResult
 
@@ -61,7 +62,7 @@ def filter_and_edge_detect(image, kernel_size=15, intensity_lower=0, intensity_u
 
     # Morphological Open operation
     # Determine kernel size according to a priori knowledge on the size of words
-    kernel = pd.np.ones((kernel_size, kernel_size), dtype=pd.np.int8)
+    kernel = np.ones((kernel_size, kernel_size), dtype=np.int8)
     hist_equalized = cv2.morphologyEx(hist_equalized, cv2.MORPH_OPEN, kernel)
     hist_equalized = cv2.morphologyEx(hist_equalized, cv2.MORPH_CLOSE, kernel)
 
@@ -80,19 +81,21 @@ def filter_and_edge_detect(image, kernel_size=15, intensity_lower=0, intensity_u
     # TODO decide thresholds
     edges = cv2.Canny(filtered, canny_lower, canny_upper, L2gradient=True, apertureSize=3)
     _, contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour_image = cv2.drawContours(pd.np.zeros(image.shape[0:2]), contours, -1, (128, 255, 0), 3)
-    theta = pd.np.linspace(-pd.np.pi * 1 / 4, pd.np.pi * 3 / 4, 180)
+    contour_image = cv2.drawContours(np.zeros(image.shape[0:2]), contours, -1, (128, 255, 0), 3)
+    theta = np.linspace(-np.pi * 1 / 4, np.pi * 3 / 4, 180)
     hough = hough_line(contour_image, theta)
     return ProcessingResult(blurred=blurred, edges=edges, contour_image=contour_image, hist_equalized=hist_equalized,
                             hist=hist, hough=HoughResult(*hough), contours=contours)
 
 
-def select_edge(result: ProcessingResult, ax=None, image: pd.np.array = None):
+def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
     lines = hough_line_peaks(result.hough.h, result.hough.theta, result.hough.distance, min_distance=10, min_angle=50,
-                             threshold=0.5 * result.hough.h.max(), num_peaks=pd.np.inf)
-    lines = pd.DataFrame(pd.np.array(lines).T, columns=['hits', 'angle', 'intercept'])
+                             threshold=0.6 * result.hough.h.max(), num_peaks=np.inf)
+    lines = pd.DataFrame(np.array(lines).T, columns=['hits', 'angle', 'intercept'])
     _divide_line_orientation(lines)
     intersections = _find_intersections(lines, result.contour_image)
+    # corners = _find_corner(intersections)
+    # print(len(corners))
 
     if ax and image is not None:
         for ix, line in lines.iterrows():
@@ -112,10 +115,10 @@ def select_edge(result: ProcessingResult, ax=None, image: pd.np.array = None):
             ax.plot(x, y, 'bx', ms=20)
         except KeyError:
             pass
-    return list(lines)
+    return lines
 
 
-def _divide_line_orientation(lines: pd.DataFrame, err=pd.np.pi * 1 / 12, inplace: bool = True):
+def _divide_line_orientation(lines: pd.DataFrame, err=np.pi * 1 / 12, inplace: bool = True):
     """
     Discriminate between horizontal and vertical lines
     :param lines: lines in polar coordination
@@ -131,7 +134,7 @@ def _divide_line_orientation(lines: pd.DataFrame, err=pd.np.pi * 1 / 12, inplace
         if abs(line['angle']) < err:
             # vertical
             direction = 'vertical'
-        elif abs(line['angle'] - pd.np.pi / 2) < err:
+        elif abs(line['angle'] - np.pi / 2) < err:
             # horizontal
             direction = 'horizontal'
         else:
@@ -141,7 +144,7 @@ def _divide_line_orientation(lines: pd.DataFrame, err=pd.np.pi * 1 / 12, inplace
     return out
 
 
-def _intersection_connectivity(horizontal_polar, vertical_polar, contour_image, along_length=50):
+def _intersection_connectivity(horizontal_polar, vertical_polar, contour_image, along_length=50, width=3):
     """ Compute connectivity given a horizontal line and vertical line in polar coordination.
     1. convert lines to cartesian coordination
     2. find intersection in cartesian coordination
@@ -159,8 +162,8 @@ def _intersection_connectivity(horizontal_polar, vertical_polar, contour_image, 
     y_h = find_point_polar(horizontal_polar, x)
     y_v = find_point_polar(vertical_polar, x)
 
-    points_h = pd.DataFrame(list(zip(x, y_h)), columns=['x', 'y'], dtype=float)
-    points_v = pd.DataFrame(list(zip(x, y_v)), columns=['x', 'y'], dtype=float)
+    points_h = pd.DataFrame(list(zip(x, y_h)), columns=['x', 'y'], dtype=np.float)
+    points_v = pd.DataFrame(list(zip(x, y_v)), columns=['x', 'y'], dtype=np.float)
 
     intersection_point = intersection(points2line(points_h), points2line(points_v))
 
@@ -171,25 +174,36 @@ def _intersection_connectivity(horizontal_polar, vertical_polar, contour_image, 
     edge_points = pd.DataFrame(columns=['x', 'y'])
     edge_points = edge_points.append(points_h, ignore_index=True)
     edge_points = edge_points.append(points_v, ignore_index=True)
-    edge_points.index = pd.Index(['left', 'right', 'down', 'top'])
+    edge_points.index = pd.Index(['left', 'right', 'top', 'down'])
 
     connectivity = dict()
     for direction, point in edge_points.iterrows():
-        distance = pd.np.sqrt(
+        distance = np.sqrt(
             (point['y'] - intersection_point['y']) ** 2 + (point['x'] - intersection_point['x']) ** 2)[0]
-        if distance >= along_length:
-            ratio = along_length / distance
-            end = pd.np.round((1 - ratio) * intersection_point + ratio * point)
-            pixels = interpolate_pixels_along_line(intersection_point, end)
-            hits = 0
-            for ix, pixel in pixels.iterrows():
+        ratio = along_length / distance
+        end = np.round((1 - ratio) * intersection_point + ratio * point)
+        pixels = interpolate_pixels_along_line(intersection_point, end, width)
+
+        # calculate the numbers of pixels that is not 0 in contour mask
+        # and that is within the contour mask image
+        hits = 0.0
+        pixels_within_image_num = 0.0
+        for ix, pixel in pixels.iterrows():
+            try:
                 if contour_image[pixel['y'], pixel['x']] > 0:
                     hits += 1
-            # TODO justify and improve connectivity criterion
-            connectivity[direction] = dict(hits=hits, pixel_along=len(pixels), connectivity=hits / len(pixels))
-    connectivity = pd.DataFrame(connectivity).T.sort_values(by='connectivity', ascending=False)
+                pixels_within_image_num += 1
+            except IndexError:
+                # TODO when pixels within image are rare, this may introduce false connectivity
+                pass
 
-    return intersection_point, connectivity
+        connectivity[direction] = dict(hits=hits, pixels_within=pixels_within_image_num,
+                                       connectivity=hits / len(pixels))
+    connectivity = pd.DataFrame(connectivity).T.sort_values(by='connectivity', ascending=False)
+    corner_connectivity = _corner_orientation(connectivity)
+    intersection_point = intersection_point.assign(**corner_connectivity)
+
+    return intersection_point
 
 
 def _corner_orientation(connectivity):
@@ -198,15 +212,17 @@ def _corner_orientation(connectivity):
     :param connectivity:
     :return:
     """
-    top2_orientations = connectivity.iloc[0:2].index
-    if {'top', 'left'} == set(top2_orientations):
-        pass
-    elif {'top', 'right'} == set(top2_orientations):
-        pass
-    elif {'down', 'right'} == set(top2_orientations):
-        pass
-    elif {'down', 'right'} == set(top2_orientations):
-        pass
+    # TODO justify and improve connectivity criterion
+    corner_connectivity = dict()
+    for corner in [['top', 'left'], ['top', 'right'], ['down', 'left'], ['down', 'right']]:
+        label = '{}-{}'.format(*corner)
+        conn = connectivity.loc[corner, 'connectivity']
+        if conn.sum() == 0:
+            corner_connectivity[label] = 0
+        else:
+            corner_connectivity[label] = 2 * (conn.iloc[0] * conn.iloc[1]) / conn.sum()
+
+    return corner_connectivity
 
 
 def _find_intersections(lines, contour_image):
@@ -214,11 +230,66 @@ def _find_intersections(lines, contour_image):
         lines['direction']
     except ValueError:
         _divide_line_orientation(lines)
-    vertical_lines = lines[lines['direction'] == 'vertical']
-    horizontal_lines = lines[lines['direction'] == 'horizontal']
-    combinations = list(itertools.product(vertical_lines.iterrows(), horizontal_lines.iterrows()))
+    lines_v = lines[lines['direction'] == 'vertical']
+    lines_h = lines[lines['direction'] == 'horizontal']
+    combinations = list(itertools.product(lines_v.index, lines_h.index))
     intersections = pd.DataFrame()
-    for (_, vertical_line), (_, horizontal_line) in combinations:
-        point, connectivity = _intersection_connectivity(horizontal_line, vertical_line, contour_image)
+    for ix_v, ix_h in combinations:
+        line_h = lines_h.loc[ix_h]
+        line_v = lines_v.loc[ix_v]
+        point = _intersection_connectivity(line_h, line_v, contour_image, 100, 2)
+        point['line_v'] = ix_v
+        point['line_h'] = ix_h
         intersections = intersections.append(point)
+    intersections = intersections.reset_index().drop(['index'], axis=1)
     return intersections
+
+
+def _find_corner(intersections, threshold=0.4):
+    """
+    label is exactly opposite to corner orientation
+    :param intersections:
+    :param threshold:
+    :return:
+    """
+    if len(intersections) == 0:
+        return list()
+
+    corner = dict()
+    count = dict()
+    for vertical, horizontal in itertools.product(('top', 'down'), ('left', 'right')):
+        label = '{}-{}'.format(_revert_orientation(vertical), _revert_orientation(horizontal))
+        # TODO simplify
+        points = intersections[(intersections[label] > threshold)]
+        corner[label] = points
+        count[label] = len(points)
+    count = pd.Series(count)
+
+    result = list()
+    start = count.idxmin()
+    vertical, horizontal = start.split('-')
+    for _, point in corner[start].iterrows():
+        label_ov = corner['{}-{}'.format(_revert_orientation(vertical), horizontal)]
+        possible_v = label_ov[label_ov['line_v'] == point['line_v']]
+
+        label_oh = corner['{}-{}'.format(vertical, _revert_orientation(horizontal))]
+        possible_h = label_oh[label_oh['line_h'] == point['line_h']]
+
+        for (_, v), (_, h) in itertools.product(possible_v.iterrows(), possible_h.iterrows()):
+            label_o = corner['{}-{}'.format(_revert_orientation(vertical), _revert_orientation(horizontal))]
+            for _, point_o in label_o.iterrows():
+                if point_o['line_h'] == v['line_h'] and point_o['line_v'] == h['line_v']:
+                    result.append(dict(start=point, opposite_v=v, opposite_h=h, opposite=point_o))
+
+    return result
+
+
+def _revert_orientation(orientation):
+    if orientation == 'left':
+        return 'right'
+    elif orientation == 'right':
+        return 'left'
+    elif orientation == 'top':
+        return 'down'
+    elif orientation == 'down':
+        return 'top'

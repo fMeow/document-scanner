@@ -7,7 +7,6 @@ import os
 import cv2
 import argparse
 import numpy as np
-from skimage.transform import hough_line_peaks
 from matplotlib import cm
 from matplotlib import pyplot as plt
 from doc_scanner.scanner import filter_and_edge_detect, select_edge
