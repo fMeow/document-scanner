@@ -148,18 +148,38 @@ def find_point_polar(line: pd.DataFrame, x: tuple):
     return y
 
 
-def _pairwise_intersection(horizontal, vertical, contour_image=None, along_length=50):
-    def line(p1, p2):
+def _pairwise_intersection(horizontal_polar, vertical_polar, contour_image=None, along_length=50):
+    """ Compute connectivity given a horizontal line and vertical line in polar coordination.
+    1. convert lines to cartesian coordination
+    2. find intersection in cartesian coordination
+    3.
+
+    :param horizontal_polar:
+    :param vertical_polar:
+    :param contour_image:
+    :param along_length:
+    :return:
+    """
+
+    def line(points: pd.DataFrame):
         """
-        compute Ax+By=C given point (x1,y1) and (x2,y2)
+        compute Ax+By+C=0 given point (x1,y1) and (x2,y2)
         :param p1:
         :param p2:
         :return:
         """
-        a = (p1[1] - p2[1])
-        b = (p2[0] - p1[0])
-        c = (p1[0] * p2[1] - p2[0] * p1[1])
-        return a, b, -c
+        if len(points) != 2:
+            raise ValueError('points should only exactly 2 points')
+        elif 'x' not in points.columns or 'y' not in points.columns:
+            raise ValueError('points should contain columns x and y')
+
+        a = points['y'].diff()[1]
+        b = -points['x'].diff()[1]
+        c = points.loc[0, 'x'] * points.loc[1, 'y'] - points.loc[1, 'x'] * points.loc[0, 'y']
+        # a = (p1[1] - p2[1])
+        # b = (p2[0] - p1[0])
+        # c = (p1[0] * p2[1] - p2[0] * p1[1])
+        return pd.DataFrame([[a, b, c]], columns=['A', 'B', 'C'])
 
     def intersection(L1, L2):
         """
@@ -169,24 +189,25 @@ def _pairwise_intersection(horizontal, vertical, contour_image=None, along_lengt
         :param L2:
         :return:
         """
-        d = L1[0] * L2[1] - L1[1] * L2[0]
-        dx = L1[2] * L2[1] - L1[1] * L2[2]
-        dy = L1[0] * L2[2] - L1[2] * L2[0]
-        if d != 0:
-            x = dx / d
-            y = dy / d
-            return x, y
-        else:
-            raise Exception("Lines given are parallel")
+        d = (L1['A'] * L2['B'] - L1['B'] * L2['A']).iloc[0]
+        dx = (L1['C'] * L2['B'] - L1['B'] * L2['C']).iloc[0]
+        dy = (L1['A'] * L2['C'] - L1['C'] * L2['A']).iloc[0]
+        x = dx / d
+        y = dy / d
+        return pd.DataFrame([[x, y]], columns=['x', 'y'])
 
     if contour_image is not None:
         x = (0, contour_image.shape[1])
     else:
         x = (0, 1000)
-    y_h = find_point_polar(horizontal, x)
-    y_v = find_point_polar(vertical, x)
 
-    point = pd.DataFrame([intersection(line(*tuple(zip(x, y_h))), line(*tuple(zip(x, y_v))))], columns=['x', 'y'])
+    y_h = find_point_polar(horizontal_polar, x)
+    y_v = find_point_polar(vertical_polar, x)
+
+    horizontal_line_points = pd.DataFrame(list(zip(x, y_h)), columns=['x', 'y'])
+    vertical_line_points = pd.DataFrame(list(zip(x, y_v)), columns=['x', 'y'])
+
+    point = intersection(line(horizontal_line_points), line(vertical_line_points))
 
     return point
 
