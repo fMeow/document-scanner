@@ -10,11 +10,11 @@ import numpy as np
 from skimage.transform import hough_line_peaks
 from matplotlib import cm
 from matplotlib import pyplot as plt
-from doc_scanner.scanner import filter_and_edge_detect, edge_selection
+from doc_scanner.scanner import filter_and_edge_detect, select_edge
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--show", dest='show', default='mpl')
-parser.add_argument("--image-path", dest='image_path', default='./images')
+parser.add_argument("--image-path", dest='image_path', default='./data/images')
 options = parser.parse_args()
 
 files = os.listdir(options.image_path)
@@ -92,7 +92,7 @@ for file in files:
 
         ax = plt.subplot(3, 3, 8)
         ax.imshow(image)
-        edge_selection(intensity_result, ax, image)
+        select_edge(intensity_result, ax, image)
         ax.set_xlim((0, image.shape[1]))
         ax.set_ylim((image.shape[0], 0))
         ax.set_axis_off()
@@ -100,7 +100,7 @@ for file in files:
 
         ax = plt.subplot(3, 3, 9)
         ax.imshow(image)
-        edge_selection(saturation_result, ax, image)
+        select_edge(saturation_result, ax, image)
         ax.set_xlim((0, image.shape[1]))
         ax.set_ylim((image.shape[0], 0))
         ax.set_axis_off()

@@ -87,17 +87,17 @@ def filter_and_edge_detect(image, kernel_size=15, intensity_lower=0, intensity_u
                             hist=hist, hough=HoughResult(*hough), contours=contours)
 
 
-def edge_selection(result: ProcessingResult, ax=None, image: np.array = None):
+def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
     lines = hough_line_peaks(result.hough.h, result.hough.theta, result.hough.distance, min_distance=10, min_angle=50,
                              threshold=0.5 * result.hough.h.max(), num_peaks=np.inf)
     lines = pd.DataFrame(np.array(lines).T, columns=['hits', 'angle', 'intercept'])
-    _discriminate_vertical_and_horizontal_lines(lines)
-    intersections = _calc_connectivity(lines, result.contour_image)
+    _divide_line_orientation(lines)
+    intersections = _find_intersections(lines, result.contour_image)
 
     if ax and image is not None:
         for ix, line in lines.iterrows():
             x = (0, image.shape[1])
-            y = polar2cartesian(line, x)
+            y = find_point_polar(line, x)
             if line['direction'] == 'vertical':
                 color = 'r'
             elif line['direction'] == 'horizontal':
@@ -115,7 +115,14 @@ def edge_selection(result: ProcessingResult, ax=None, image: np.array = None):
     return list(lines)
 
 
-def _discriminate_vertical_and_horizontal_lines(lines: pd.DataFrame, err=np.pi * 1 / 12, inplace: bool = True):
+def _divide_line_orientation(lines: pd.DataFrame, err=np.pi * 1 / 12, inplace: bool = True):
+    """
+    Discriminate between horizontal and vertical lines
+    :param lines: lines in polar coordination
+    :param err:
+    :param inplace:
+    :return:
+    """
     if not inplace:
         out = lines.copy()
     else:
@@ -134,14 +141,14 @@ def _discriminate_vertical_and_horizontal_lines(lines: pd.DataFrame, err=np.pi *
     return out
 
 
-def polar2cartesian(line, x):
+def find_point_polar(line: pd.DataFrame, x: tuple):
     angle = line['angle']
     dist = line['intercept']
     y = tuple(map(lambda i: (dist - i * np.cos(angle)) / np.sin(angle), x))
     return y
 
 
-def _pairwise_connectivity(horizontal, vertical, contour_image=None, along_length=50):
+def _pairwise_intersection(horizontal, vertical, contour_image=None, along_length=50):
     def line(p1, p2):
         """
         compute Ax+By=C given point (x1,y1) and (x2,y2)
@@ -176,29 +183,80 @@ def _pairwise_connectivity(horizontal, vertical, contour_image=None, along_lengt
         x = (0, contour_image.shape[1])
     else:
         x = (0, 1000)
-    y_h = polar2cartesian(horizontal, x)
-    y_v = polar2cartesian(vertical, x)
+    y_h = find_point_polar(horizontal, x)
+    y_v = find_point_polar(vertical, x)
 
     point = pd.DataFrame([intersection(line(*tuple(zip(x, y_h))), line(*tuple(zip(x, y_v))))], columns=['x', 'y'])
 
-    # horizontal_vec = horizontal['intercept'] * np.exp(1j * horizontal['angle'])
-    # vertical_vec = vertical['intercept'] * np.exp(1j * vertical['angle'])
-    # complex = horizontal_vec + vertical_vec
-    # point = pd.DataFrame([(np.real(complex), np.imag(complex))], columns=['x', 'y'])
-    return
+    return point
 
 
-def _calc_connectivity(lines, contour_image=None):
+def _find_intersections(lines, contour_image=None):
     try:
         lines['direction']
     except ValueError:
-        _discriminate_vertical_and_horizontal_lines(lines)
+        _divide_line_orientation(lines)
     vertical_lines = lines[lines['direction'] == 'vertical']
     horizontal_lines = lines[lines['direction'] == 'horizontal']
     combinations = itertools.product(vertical_lines.iterrows(), horizontal_lines.iterrows())
-    intersection = pd.DataFrame()
+    intersections = pd.DataFrame()
     for (_, vertical_line), (_, horizontal_line) in combinations:
-        point = _pairwise_connectivity(horizontal_line, vertical_line, contour_image)
-        intersection = intersection.append(point)
-    return intersection
+        point = _pairwise_intersection(horizontal_line, vertical_line, contour_image)
+        intersections = intersections.append(point)
+    return intersections
 
+# class scanner:
+#     def __init__(self, image):
+#         """
+#         :param image: RGB
+#         """
+#         self.__image = image
+#
+#         # Convert RGB to HSV colorspace
+#         hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+#
+#         # hue ranges from 0-180
+#         self.hue = hsv[:, :, 0]
+#         self.saturation = hsv[:, :, 1]
+#         self.intensity = hsv[:, :, 2]
+#
+#     def __preprocess(self, img, blur_size=25, morphology_kernel_size=15, intensity_lower=0, intensity_upper=255):
+#         """Preprocess pipeline
+#         1. Blur
+#         1. Histogram equalization
+#         1. Morphological operation (Opening)
+#         1. (Optional) Threshold based segmentation.
+#
+#             Here we assume that the document of interest is mainly white while background is darker.
+#             Then we can extract document from background with a proper threshold.
+#             After histogram, maybe we can just assume the document lays in the half brighter part on histogram.
+#         :param img: 2D image (Hue or saturation or intensity)
+#         :param blur_size:
+#         :param morphology_kernel_size:
+#         :param intensity_lower:
+#         :param intensity_upper:
+#         :return:
+#         """
+#         # blurred = cv2.GaussianBlur(image, (5, 5), 0)
+#         # blurred = cv2.bilateralFilter(image, 9, 50, 50)
+#         blurred = cv2.medianBlur(img, blur_size)
+#         hist_equalized = cv2.equalizeHist(blurred)
+#
+#         # Morphological Open operation
+#         # Determine kernel size according to a priori knowledge on the size of words
+#         kernel = np.ones((morphology_kernel_size, morphology_kernel_size), dtype=np.int8)
+#         hist_equalized = cv2.morphologyEx(hist_equalized, cv2.MORPH_OPEN, kernel)
+#         hist_equalized = cv2.morphologyEx(hist_equalized, cv2.MORPH_CLOSE, kernel)
+#
+#         # hist = cv2.calcHist([hist_equalized], [0], None, [256], [0, 256])
+#         # plt.bar(np.arange(len(hist)), hist.flatten())
+#         # plt.show()
+#
+#         # TODO intensity threshold filter can bring artifacts
+#         # Threshold the intensity image or gray scale image
+#         # ret, thresh = cv2.threshold(imgray, 127, 255, 0)
+#         mask = cv2.inRange(hist_equalized, intensity_lower, intensity_upper)
+#
+#         # Bitwise-AND mask and original image
+#         filtered = cv2.bitwise_and(hist_equalized, hist_equalized, mask=mask)
+#         return filtered
