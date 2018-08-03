@@ -77,6 +77,10 @@ class scanner:
         edges = cv2.Canny(self.filterred, canny_lower, canny_upper, L2gradient=True, apertureSize=3)
         _, contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.edges_img = cv2.drawContours(np.zeros(self.image.shape[0:2]), contours, -1, (128, 255, 0), 3)
+        # -------------------- dialation --------------------
+        # TODO Kernel shape
+        kernel = np.ones((erode_ks, erode_ks), dtype=np.int8)
+        self.edges_img = cv2.morphologyEx(self.edges_img, cv2.MORPH_ERODE, kernel)
 
     def hough_transform(self, err=np.pi * 1 / 12, threshold=0.49, ks=3):
         # -------------------- scikit-image hough line transform --------------------
