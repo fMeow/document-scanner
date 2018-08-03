@@ -18,37 +18,67 @@ def intersection(L1: pd.DataFrame, L2: pd.DataFrame):
     dy = (L1['A'] * L2['C'] - L1['C'] * L2['A'])
     x = dx / d
     y = dy / d
-    points = pd.DataFrame()
-    points = points.assign(x=x, y=y)
-    return points
+    return list(zip(x.values.tolist(), y.values.tolist()))
 
 
-def points2line(points: pd.DataFrame):
+def points2line(p1, p2):
     """
-    compute Ax+By+C=0 given point (x1,y1) and (x2,y2)
+    compute Ax+By+C=0 given a list of point [(x1,y1)] and [(x2,y2)]
     :param p1:
     :param p2:
     :return:
     """
-    if len(points) != 2:
-        raise ValueError('points should only exactly 2 points')
-    elif 'x' not in points.columns or 'y' not in points.columns:
-        raise ValueError('points should contain columns x and y')
+    # if len(points) != 2:
+    #     raise ValueError('points should only exactly 2 points')
+    # elif 'x' not in points.columns or 'y' not in points.columns:
+    #     raise ValueError('points should contain columns x and y')
 
-    a = points['y'].diff()[1]
-    b = -points['x'].diff()[1]
-    c = points.loc[0, 'x'] * points.loc[1, 'y'] - points.loc[1, 'x'] * points.loc[0, 'y']
-    # a = (p1[1] - p2[1])
-    # b = (p2[0] - p1[0])
-    # c = (p1[0] * p2[1] - p2[0] * p1[1])
-    return pd.DataFrame([[a, b, c]], columns=['A', 'B', 'C'])
+    # a = points['y'].diff()[1]
+    # b = -points['x'].diff()[1]
+    # c = points.loc[0, 'x'] * points.loc[1, 'y'] - points.loc[1, 'x'] * points.loc[0, 'y']
+    p1 = np.array(p1)
+    p2 = np.array(p2)
+
+    # TODO check shape and dimensions of p1 and p2
+    a = (p1[:, 1] - p2[:, 1])
+    b = (p2[:, 0] - p1[:, 0])
+    c = (p1[:, 0] * p2[:, 1] - p2[:, 0] * p1[:, 1])
+    return pd.DataFrame([a, b, c], index=['A', 'B', 'C']).T
 
 
-def find_point_polar(line: pd.DataFrame, x: tuple):
-    angle = line['angle']
-    dist = line['intercept']
-    y = tuple(map(lambda i: (dist - i * np.cos(angle)) / np.sin(angle), x))
+def find_y_on_lines(lines: np.array, x: np.array):
+    """
+    find y of a list of x on a list of lines that in polar form.
+    :param lines:
+    :param x:
+    :return: a list of points, 1th dimension for different x and 2th dimension for different lines
+    """
+    # TODO check dimensions
+    if len(lines) == 0:
+        return lines
+    lines = np.array(lines)
+    x = np.array(x)
+    rho = lines[:, 1].reshape(-1, 1)
+    phi = lines[:, 0].reshape(-1, 1)
+    y = (rho - x * np.cos(phi)) / np.sin(phi)
     return y
+
+
+def find_points_on_lines(lines: np.array, x: np.array):
+    """
+    find points of a list of x on a list of lines that in polar form.
+    :param lines:
+    :param x:
+    :return: a list of points, 1th dimension for different x and 2th dimension for different lines
+    """
+    y = find_y_on_lines(lines, x)
+    points = list()
+    for ix in range(len(x)):
+        points_on_a_line = np.zeros((len(lines), 2))
+        points_on_a_line[:, 0] = x[ix]
+        points_on_a_line[:, 1] = y[:, ix]
+        points.append(list(map(lambda x: tuple(x), points_on_a_line.tolist())))
+    return points
 
 
 def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame, width=2):

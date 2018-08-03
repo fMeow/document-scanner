@@ -1,32 +1,28 @@
 import numpy as np
 import pandas as pd
-from doc_scanner.math_utils import points2line, find_point_polar, intersection, interpolate_pixels_along_line
+from doc_scanner.math_utils import points2line, find_y_on_lines, intersection, interpolate_pixels_along_line
 
 
-def calc_intersections(horizontal_polar, vertical_polar, contour_image):
-    """ Compute connectivity given a horizontal line and vertical line in polar coordination.
-    1. convert lines to cartesian coordination
-    2. find intersection in cartesian coordination
-    3.
-
-    :param horizontal_polar:
-    :param vertical_polar:
-    :param contour_image:
-    :param along_length:
-    :return:
-    """
-
-    x = (0, contour_image.shape[1])
-
-    y_h = find_point_polar(horizontal_polar, x)
-    y_v = find_point_polar(vertical_polar, x)
-
-    points_h = pd.DataFrame(list(zip(x, y_h)), columns=['x', 'y'], dtype=np.float)
-    points_v = pd.DataFrame(list(zip(x, y_v)), columns=['x', 'y'], dtype=np.float)
-
-    intersections = intersection(points2line(points_h), points2line(points_v))
-    # TODO better bridge between calc_intersections and connectivity
-    return intersections, points_h, points_v
+# def calc_intersections(horizontal_polar, vertical_polar, contour_image):
+#     """ Compute connectivity given a horizontal line and vertical line in polar coordination.
+#     1. convert lines to cartesian coordination
+#     2. find intersection in cartesian coordination
+#     3.
+#
+#     :param horizontal_polar:
+#     :param vertical_polar:
+#     :param contour_image:
+#     :param along_length:
+#     :return:
+#     """
+#
+#     x = (0, contour_image.shape[1])
+#
+#     points_h = find_point_polar(horizontal_polar, x)
+#     points_v = find_point_polar(vertical_polar, x)
+#
+#     intersections = intersection(points2line(*points_h), points2line(*points_v))
+#     return intersections, points_h, points_v
 
 
 def connectivity(intersections, points_h, points_v, contour_image, along_length=50, width=3):
