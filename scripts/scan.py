@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 from matplotlib import cm
 from matplotlib import pyplot as plt
-from doc_scanner.scanner import filter_and_edge_detect, select_edge
+from doc_scanner.scanner import filter_and_edge_detect, select_edge, find_point_polar
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--show", dest='show', default='mpl')
@@ -45,6 +45,7 @@ for file in files:
     fused = (intensity_result.edges + saturation_result.edges) / 2
     fused = fused.astype(np.uint8)
 
+    lines, intersections, edges, warped = select_edge(intensity_result, image)
     if options.show == 'mpl':
         plt.clf()
         plt.ion()
@@ -70,14 +71,15 @@ for file in files:
         ax = plt.subplot(3, 3, 5)
         # ax.imshow(intensity_with_contours)
         # ax.set_title("Contours(Intensity)")
-        ax.imshow(np.log(1 + intensity_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
-                  extent=[np.rad2deg(intensity_result.hough.theta[-1]), np.rad2deg(intensity_result.hough.theta[0]),
-                          500, 300],
-                  )
-        ax.set_title('Hough transform(Intensity)')
+        # ax.imshow(np.log(1 + intensity_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
+        #           extent=[np.rad2deg(intensity_result.hough.theta[-1]), np.rad2deg(intensity_result.hough.theta[0]),
+        #                   500, 300],
+        #           )
+        # ax.set_title('Hough transform(Intensity)')
         # ax.set_xlabel('Angles (degrees)')
-        ax.set_ylabel('Distance (pixels)')
-        ax.axis('image')
+        # ax.set_ylabel('Distance (pixels)')
+        # ax.axis('image')
+        ax.imshow(warped)
 
         ax = plt.subplot(3, 3, 6)
         ax.imshow(np.log(1 + saturation_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
@@ -91,19 +93,40 @@ for file in files:
 
         ax = plt.subplot(3, 3, 8)
         ax.imshow(image)
-        select_edge(intensity_result, ax, image)
+        if ax and image is not None:
+            for ix, line in lines.iterrows():
+                x = (0, image.shape[1])
+                y = find_point_polar(line, x)
+                if line['direction'] == 'vertical':
+                    color = 'r'
+                elif line['direction'] == 'horizontal':
+                    color = 'g'
+                else:
+                    color = 'k'
+                ax.plot(x, y, '-{}'.format(color))
+
+            try:
+                x = intersections['x'].values
+                y = intersections['y'].values
+                ax.plot(x, y, 'bx', ms=20)
+            except KeyError:
+                pass
+
+            # if len(corners) > 0:
+            #     points = np.array(edges.drop('score').values.tolist())
+            #     ax.plot(points[:, 0], points[:, 1], 'cx', ms=20)
         ax.set_xlim((0, image.shape[1]))
         ax.set_ylim((image.shape[0], 0))
         ax.set_axis_off()
         ax.set_title('Detected lines(Intensity)')
 
-        ax = plt.subplot(3, 3, 9)
-        ax.imshow(image)
-        select_edge(saturation_result, ax, image)
-        ax.set_xlim((0, image.shape[1]))
-        ax.set_ylim((image.shape[0], 0))
-        ax.set_axis_off()
-        ax.set_title('Detected lines(Saturation)')
+        # ax = plt.subplot(3, 3, 9)
+        # ax.imshow(image)
+        # select_edge(saturation_result, image)
+        # ax.set_xlim((0, image.shape[1]))
+        # ax.set_ylim((image.shape[0], 0))
+        # ax.set_axis_off()
+        # ax.set_title('Detected lines(Saturation)')
 
         # plt.tight_layout()
         plt.pause(0.2)

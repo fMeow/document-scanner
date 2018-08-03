@@ -5,6 +5,7 @@ import itertools
 from dataclasses import dataclass
 from skimage.transform import hough_line_peaks, hough_line
 from doc_scanner.math_utils import points2line, find_point_polar, intersection, interpolate_pixels_along_line
+from doc_scanner.transform import four_point_transform
 
 
 @dataclass
@@ -88,7 +89,7 @@ def filter_and_edge_detect(image, kernel_size=15, intensity_lower=0, intensity_u
                             hist=hist, hough=HoughResult(*hough), contours=contours)
 
 
-def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
+def select_edge(result: ProcessingResult, image: np.array = None):
     lines = hough_line_peaks(result.hough.h, result.hough.theta, result.hough.distance, min_distance=10, min_angle=50,
                              threshold=0.49 * result.hough.h.max(), num_peaks=np.inf)
     lines = pd.DataFrame(np.array(lines).T, columns=['hits', 'angle', 'intercept'])
@@ -97,31 +98,14 @@ def select_edge(result: ProcessingResult, ax=None, image: np.array = None):
     corners = _find_corner(intersections)
     if len(corners) > 0:
         edges = pd.DataFrame(corners).sort_values(by=['score']).iloc[0]
+        warped = four_point_transform(image,
+                                      np.array([edges['top-left'], edges['top-right'], edges['down-right'], edges['down-left']]))
+    else:
+        edges = None
+        warped = None
     # print(len(corners))
 
-    if ax and image is not None:
-        for ix, line in lines.iterrows():
-            x = (0, image.shape[1])
-            y = find_point_polar(line, x)
-            if line['direction'] == 'vertical':
-                color = 'r'
-            elif line['direction'] == 'horizontal':
-                color = 'g'
-            else:
-                color = 'k'
-            ax.plot(x, y, '-{}'.format(color))
-
-        try:
-            x = intersections['x'].values
-            y = intersections['y'].values
-            ax.plot(x, y, 'bx', ms=20)
-        except KeyError:
-            pass
-
-        if len(corners) > 0:
-            points = np.array(edges.drop('score').values.tolist())
-            ax.plot(points[:, 0], points[:, 1], 'cx', ms=20)
-    return lines
+    return lines, intersections, edges, warped
 
 
 def _divide_line_orientation(lines: pd.DataFrame, err=np.pi * 1 / 12, inplace: bool = True):
