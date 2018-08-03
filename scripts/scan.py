@@ -1,15 +1,11 @@
-"""
-Basic idea:
-1. Convert color space from RGB to HSV
-"""
-
 import os
 import cv2
 import argparse
 import numpy as np
 from matplotlib import cm
 from matplotlib import pyplot as plt
-from doc_scanner.scanner import filter_and_edge_detect, select_edge, find_point_polar
+from doc_scanner.scanner_OOP import scanner
+from doc_scanner.math_utils import find_point_polar
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--show", dest='show', default='mpl')
@@ -34,67 +30,44 @@ for file in files:
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
     # hue ranges from 0-180
-    hue = hsv[:, :, 0]
-    saturation = hsv[:, :, 1]
-    intensity = hsv[:, :, 2]
+    hue = scanner(hsv[:, :, 0])
+    saturation = scanner(hsv[:, :, 1])
+    intensity = scanner(hsv[:, :, 2])
 
-    hue_result = filter_and_edge_detect(hue, canny_lower=30, canny_upper=150)
-    saturation_result = filter_and_edge_detect(saturation)
-    intensity_result = filter_and_edge_detect(intensity)
+    warped = intensity.scan()
 
-    fused = (intensity_result.edges + saturation_result.edges) / 2
-    fused = fused.astype(np.uint8)
-
-    lines, intersections, edges, warped = select_edge(intensity_result, image)
     if options.show == 'mpl':
         plt.clf()
         plt.ion()
-        ax = plt.subplot(3, 3, 1)
+        ax = plt.subplot(2, 2, 1)
         ax.imshow(image)
         ax.set_title("Original")
 
-        # ax = plt.subplot(2, 3, 2)
-        # ax.imshow(hue_edges, cmap='gray')
-        # ax.set_title("Hue")
-        ax = plt.subplot(3, 3, 2)
-        ax.imshow(intensity_result.contour_image, cmap='gray')
-        ax.set_title("Contours(Intensity)")
+        ax = plt.subplot(2, 2, 2)
+        ax.imshow(intensity.edges_img, cmap='gray')
+        ax.set_title("Edges(Intensity)")
 
-        ax = plt.subplot(3, 3, 3)
-        ax.imshow(saturation_result.contour_image, cmap='gray')
-        ax.set_title("Saturation")
+        ax = plt.subplot(2, 2, 3)
+        ax.imshow(intensity.edges_img, cmap='gray')
+        ax.set_title("Edges(Intensity)")
 
-        ax = plt.subplot(3, 3, 4)
-        ax.bar(np.arange(0, 256), intensity_result.hist.flatten())
-        ax.set_title("Intensity Histogram")
-
-        ax = plt.subplot(3, 3, 5)
-        # ax.imshow(intensity_with_contours)
-        # ax.set_title("Contours(Intensity)")
-        # ax.imshow(np.log(1 + intensity_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
-        #           extent=[np.rad2deg(intensity_result.hough.theta[-1]), np.rad2deg(intensity_result.hough.theta[0]),
-        #                   500, 300],
-        #           )
-        # ax.set_title('Hough transform(Intensity)')
-        # ax.set_xlabel('Angles (degrees)')
-        # ax.set_ylabel('Distance (pixels)')
-        # ax.axis('image')
-        ax.imshow(warped)
+        ax = plt.subplot(2, 2, 4)
+        if warped is not None:
+            ax.imshow(warped)
 
         ax = plt.subplot(3, 3, 6)
-        ax.imshow(np.log(1 + saturation_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
-                  extent=[np.rad2deg(saturation_result.hough.theta[-1]), np.rad2deg(saturation_result.hough.theta[0]),
-                          500, 300],
-                  )
+        # ax.imshow(np.log(1 + saturation_result.hough.h), cmap=cm.gray, aspect=1 / 1.5,
+        #           extent=[np.rad2deg(saturation_result.hough.theta[-1]), np.rad2deg(saturation_result.hough.theta[0]),
+        #                   500, 300],
+        #           )
         ax.set_title('Hough transform(Saturation)')
-        # ax.set_xlabel('Angles (degrees)')
         ax.set_ylabel('Distance (pixels)')
         ax.axis('image')
 
         ax = plt.subplot(3, 3, 8)
         ax.imshow(image)
         if ax and image is not None:
-            for ix, line in lines.iterrows():
+            for ix, line in intensity.lines.iterrows():
                 x = (0, image.shape[1])
                 y = find_point_polar(line, x)
                 if line['direction'] == 'vertical':
@@ -106,8 +79,8 @@ for file in files:
                 ax.plot(x, y, '-{}'.format(color))
 
             try:
-                x = intersections['x'].values
-                y = intersections['y'].values
+                x = intensity.intersections['x'].values
+                y = intensity.intersections['y'].values
                 ax.plot(x, y, 'bx', ms=20)
             except KeyError:
                 pass
@@ -137,8 +110,8 @@ for file in files:
         # cv2.imshow('opening', hist_equalized)
         # cv2.imshow('Intensity Filtered', filtered)
 
-        cv2.imshow('saturation edge', saturation_result.edges)
-        cv2.imshow('intensity edge', intensity_result.edges)
+        # cv2.imshow('saturation edge', saturation_result.edges)
+        # cv2.imshow('intensity edge', intensity_result.edges)
         # cv2.imshow('hue edge', hue_edges)
         cv2.imshow('original', image)
         # cv2.imshow('intensity', intensity_blurred)
@@ -149,3 +122,4 @@ for file in files:
         cv2.destroyAllWindows()
     else:
         raise ValueError("--show must be cv or mpl")
+
