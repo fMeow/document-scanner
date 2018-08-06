@@ -1,16 +1,11 @@
 import cv2
 import numpy as np
-import pandas as pd
 import itertools
-from dataclasses import dataclass
 from skimage.transform import hough_line_peaks, hough_line
-from doc_scanner.math_utils import points2line, find_y_on_lines, intersection, interpolate_pixels_along_line, \
-    find_points_on_lines
+from doc_scanner.math_utils import points2line, find_y_on_lines, intersection_cartesian, find_points_on_lines
 from matplotlib import pyplot as plt
+from doc_scanner.model import Intersection, Frame
 from doc_scanner.transform import four_point_transform
-from doc_scanner.intersection import connectivity
-from doc_scanner.transform import four_point_transform
-from typing import Tuple
 
 
 class scanner:
@@ -25,10 +20,10 @@ class scanner:
         self.calc_intersections()
         self.calc_connectivity()
         self.detect_corner()
-        # return self.warp()
+        return self.warp()
 
     def preprocess(self, kernel_size=15, intensity_lower=0, intensity_upper=255, canny_lower=10, canny_upper=70,
-                   erode_ks=3):
+                   erode_ks=3, dilate_ks=15):
         """Filter and edge detection given a 2D digital image array
         1. Blur
         1. Histogram equalization
@@ -77,7 +72,10 @@ class scanner:
         edges = cv2.Canny(self.filterred, canny_lower, canny_upper, L2gradient=True, apertureSize=3)
         _, contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.edges_img = cv2.drawContours(np.zeros(self.image.shape[0:2]), contours, -1, (128, 255, 0), 3)
-        # -------------------- dialation --------------------
+        # -------------------- Dilation --------------------
+        kernel = np.ones((dilate_ks, dilate_ks), dtype=np.int8)
+        self.edges_img_dilated = cv2.morphologyEx(self.edges_img, cv2.MORPH_DILATE, kernel)
+        # -------------------- Erosion --------------------
         # TODO Kernel shape
         kernel = np.ones((erode_ks, erode_ks), dtype=np.int8)
         self.edges_img = cv2.morphologyEx(self.edges_img, cv2.MORPH_ERODE, kernel)
@@ -118,7 +116,7 @@ class scanner:
         """
         combinations = list(itertools.product(self.lines['v'], self.lines['h']))
         if len(combinations) == 0:
-            self.intersections = pd.DataFrame(columns=['v', 'h', 'cross'])
+            self.intersections = list()
             return self.intersections
 
         pairs = np.array(combinations)
@@ -130,63 +128,70 @@ class scanner:
         points_h = find_points_on_lines(lines_h, x)
         points_v = find_points_on_lines(lines_v, x)
 
-        # TODO better bridge between calc_intersections and connectivity
-        self.intersections = pd.DataFrame(combinations, columns=['v', 'h'])
-        cross = intersection(points2line(*points_h), points2line(*points_v))
-        self.intersections = self.intersections.assign(cross=cross)
+        cross = intersection_cartesian(points2line(*points_h), points2line(*points_v))
+
+        self.intersections = list()
+        for ix in range(len(combinations)):
+            self.intersections.append(Intersection(cross[ix], *combinations[ix], x=x))
         return self.intersections
 
     def calc_connectivity(self):
-        x = (0, self.edges_img.shape[1])
-        y_h = find_y_on_lines(self.intersections['h'].tolist(), x)
-        y_v = find_y_on_lines(self.intersections['v'].tolist(), x)
 
-        if points_h['x'].diff()[1] < 0:
-            points_h = points_h.iloc[::-1]
-        if points_v['y'].diff()[1] < 0:
-            points_v = points_v.iloc[::-1]
-        edge_points = pd.DataFrame(columns=['x', 'y'])
-        edge_points = edge_points.append(points_h, ignore_index=True)
-        edge_points = edge_points.append(points_v, ignore_index=True)
-        edge_points.index = pd.Index(['left', 'right', 'top', 'bottom'])
+        for intersection in self.intersections:
+            intersection.image = self.edges_img_dilated
+            intersection.connectivity()
+        return self.intersections
 
-        connectivity = dict()
-        for direction, point in edge_points.iterrows():
-            distance = np.sqrt(
-                (point['y'] - intersections['y']) ** 2 + (point['x'] - intersections['x']) ** 2)[0]
-            ratio = along_length / distance
-            end = np.round((1 - ratio) * intersections + ratio * point)
-            pixels = interpolate_pixels_along_line(intersections, end, width)
+    def detect_corner(self, threshold=0.4):
+        corner = dict()
+        for orientation in Intersection.ORIENTATION_ORDER:
+            corner[orientation] = list()
+        for intersection in self.intersections:
+            orientation_score = intersection.orientation()
+            for ix in range(4):
+                if orientation_score[ix] > threshold:
+                    corner[Intersection.ORIENTATION_ORDER[ix]].append(intersection)
 
-            # calculate the numbers of pixels that is not 0 in contour mask
-            # and that is within the contour mask image
-            hits = 0.0
-            pixels_within_image_num = 0.0
-            for ix, pixel in pixels.iterrows():
-                try:
-                    if contour_image[pixel['y'], pixel['x']] > 0:
-                        hits += 1
-                    pixels_within_image_num += 1
-                except IndexError:
-                    # TODO when pixels within image are rare, this may introduce false connectivity
-                    pass
+        possible_rectangle = list()
+        for top_left in corner['top-left']:
 
-            connectivity[direction] = dict(hits=hits, pixels_within=pixels_within_image_num,
-                                           connectivity=hits / len(pixels))
-        connectivity = pd.DataFrame(connectivity).T.sort_values(by='connectivity', ascending=False)
-        corner_connectivity = calc_corner_connectivity(connectivity)
-        intersections = intersections.assign(**corner_connectivity)
+            bottom_left_candidates = list()
+            for bottom_left in corner['bottom-left']:
+                if bottom_left == top_left:
+                    continue
+                if bottom_left.line_v == top_left.line_v:
+                    bottom_left_candidates.append(bottom_left)
 
-        return intersections
+            top_right_candidates = list()
+            for top_right in corner['top-right']:
+                if top_right == top_left:
+                    continue
+                if top_right.line_h == top_left.line_h:
+                    top_right_candidates.append(top_right)
 
-    def detect_corner(self):
-        pass
+            combinations = list(itertools.product(top_right_candidates, bottom_left_candidates))
+            for bottom_right in corner['bottom-right']:
+                if bottom_right == top_left:
+                    continue
+                for top_right, bottom_left in combinations:
+                    if bottom_right.line_v == top_right.line_v and bottom_right.line_h == bottom_left.line_h:
+                        possible_rectangle.append(
+                            Frame(top_left, top_right, bottom_right, bottom_left, image_shape=self.edges_img_dilated.shape))
+        if len(possible_rectangle) > 0:
+            self.corners = max(possible_rectangle)
+        else:
+            self.corners = None
+        return possible_rectangle
 
     def warp(self):
         # TODO auto compute corners
         if not hasattr(self, 'corners'):
             raise KeyError('make sure corners has been detected before warp')
-        four_point_transform(self.image, self.corners)
+        if self.corners:
+            self.warped = four_point_transform(self.image, self.corners.coordinates())
+        else:
+            raise ValueError("Fail to find possible rectangle")
+        return self.warped
 
     def plot_lines(self, ax):
         x = (0, self.image.shape[1])
@@ -201,7 +206,7 @@ class scanner:
             for _y in y:
                 ax.plot(x, _y, '-{}'.format(color))
 
-    def focus_on_intersection(self, intersection, ax, size=50):
+    def focus_on_intersection(self, intersection: Intersection, ax, size=50):
         """Zoom in to have a close look on given intersection
 
         :param intersection:
@@ -209,14 +214,19 @@ class scanner:
         :param size:
         :return:
         """
-        ax.set_xlim((intersection[0] - size, intersection[0] + size))
-        ax.set_ylim((intersection[1] - size, intersection[1] + size))
+        ax.set_xlim((intersection.intersection[0] - size, intersection.intersection[0] + size))
+        ax.set_ylim((intersection.intersection[1] - size, intersection.intersection[1] + size))
 
     def reset_plot_view(self, ax):
         ax.set_xlim((0, self.image.shape[1]))
         ax.set_ylim((self.image.shape[0], 0))
 
-    def plot_around_intersection(self, intersection: Tuple[np.int8, np.int8], edges=True, size=50, ax=None):
+    def plot_corners(self, ax):
+        if self.corners:
+            for corner in self.corners.coordinates():
+                ax.plot(corner[0], corner[1], 'cx', ms=20)
+
+    def plot_around_intersection(self, intersection: Intersection, edges=True, size=50, ax=None):
         """plot image around given intersection
 
         :param intersection:
@@ -233,8 +243,8 @@ class scanner:
         else:
             ax.imshow(self.image)
 
-        ax.plot(intersection, 'cx', ms=20)
-        ax.set_xlim((intersection[0] - size, intersection[0] + size))
-        ax.set_ylim((intersection[1] - size, intersection[1] + size))
+        ax.plot(intersection.intersection, 'cx', ms=20)
+        ax.set_xlim((intersection.intersection[0] - size, intersection.intersection[0] + size))
+        ax.set_ylim((intersection.intersection[1] - size, intersection.intersection[1] + size))
         ax.set_axis_off()
         ax.set_title('Detected lines(Intensity)')

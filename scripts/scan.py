@@ -14,8 +14,12 @@ options = parser.parse_args()
 
 files = os.listdir(options.image_path)
 for file in files:
-    if os.path.isdir(os.path.join(options.image_path, file)):
+    filepath = os.path.join(options.image_path, file)
+    if os.path.isdir(filepath):
         continue
+    else:
+        if not filepath.endswith('jpg'):
+            continue
     image = cv2.imread(os.path.join(options.image_path, file))
 
     # resize image
@@ -34,20 +38,39 @@ for file in files:
     saturation = scanner(hsv[:, :, 1])
     intensity = scanner(hsv[:, :, 2])
 
-    warped = intensity.scan()
-    warped = saturation.scan()
+    intensity_warped = intensity.scan()
+    saturation_warped = saturation.scan()
 
     plt.clf()
     plt.ion()
-    ax = plt.subplot(2,1,1)
+    if hasattr(intensity.corners, 'corners'):
+        print("-------------------- Intensity --------------------")
+        intensity.corners.summary()
+
+    if hasattr(saturation.corners, 'corners'):
+        print("-------------------- Saturation --------------------")
+        saturation.corners.summary()
+
+    ax = plt.subplot(2, 2, 1)
     ax.imshow(intensity.edges_img, cm.gray)
     intensity.plot_lines(ax)
     intensity.reset_plot_view(ax)
 
-
-    ax = plt.subplot(2,1,2)
+    ax = plt.subplot(2, 2, 2)
     ax.imshow(saturation.edges_img, cm.gray)
     saturation.plot_lines(ax)
+    saturation.reset_plot_view(ax)
+
+    ax = plt.subplot(2, 2, 3)
+    ax.imshow(intensity.edges_img_dilated, cm.gray)
+    intensity.plot_lines(ax)
+    intensity.plot_corners(ax)
+    intensity.reset_plot_view(ax)
+
+    ax = plt.subplot(2, 2, 4)
+    ax.imshow(saturation.edges_img_dilated, cm.gray)
+    saturation.plot_lines(ax)
+    saturation.plot_corners(ax)
     saturation.reset_plot_view(ax)
 
     plt.pause(0.2)

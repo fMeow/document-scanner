@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 
 
-def intersection(L1: pd.DataFrame, L2: pd.DataFrame):
+def intersection_cartesian(L1: pd.DataFrame, L2: pd.DataFrame):
     """
-    Compute intersection given two lines in general form.
+    Compute cartesian coordinates of intersection points given two list of lines in general form.
     General form for a line: Ax+By+C=0
 
     :param L1:
@@ -14,8 +14,8 @@ def intersection(L1: pd.DataFrame, L2: pd.DataFrame):
     if not {'A', 'B', 'C'}.issubset(set(L1.columns)) or not {'A', 'B', 'C'}.issubset(set(L2.columns)):
         raise ValueError('L1 and L2 should both contains columns A, B and C, which depicts lines in general form')
     d = (L1['A'] * L2['B'] - L1['B'] * L2['A'])
-    dx = (L1['C'] * L2['B'] - L1['B'] * L2['C'])
-    dy = (L1['A'] * L2['C'] - L1['C'] * L2['A'])
+    dx = L1['B'] * L2['C'] - L1['C'] * L2['B']
+    dy = L1['C'] * L2['A'] - L1['A'] * L2['C']
     x = dx / d
     y = dy / d
     return list(zip(x.values.tolist(), y.values.tolist()))
@@ -57,6 +57,9 @@ def find_y_on_lines(lines: np.array, x: np.array):
     if len(lines) == 0:
         return lines
     lines = np.array(lines)
+    if len(lines.shape) == 1:
+        lines = lines.reshape(-1, 2)
+
     x = np.array(x)
     rho = lines[:, 1].reshape(-1, 1)
     phi = lines[:, 0].reshape(-1, 1)
@@ -71,6 +74,13 @@ def find_points_on_lines(lines: np.array, x: np.array):
     :param x:
     :return: a list of points, 1th dimension for different x and 2th dimension for different lines
     """
+    if len(lines) == 0:
+        return lines
+    lines = np.array(lines)
+    if len(lines.shape) == 1:
+        lines = lines.reshape(-1, 2)
+    x = np.array(x)
+
     y = find_y_on_lines(lines, x)
     points = list()
     for ix in range(len(x)):
@@ -81,7 +91,7 @@ def find_points_on_lines(lines: np.array, x: np.array):
     return points
 
 
-def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame, width=2):
+def interpolate_pixels_along_line(p1: np.array or tuple, p2: np.array or tuple, width=2):
     """Uses Xiaolin Wu's line algorithm to interpolate all of the pixels along a
     straight line, given two points (x0, y0) and (x1, y1)
 
@@ -91,8 +101,15 @@ def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame, width=2):
     Given by Rick(https://stackoverflow.com/users/2025958/rick)
     on https://stackoverflow.com/questions/24702868/python3-pillow-get-all-pixels-on-a-line.
     """
-    (x1, y1) = p1.values.flatten()
-    (x2, y2) = p2.values.flatten()
+    if type(p1) is np.ndarray and type(p2) is np.ndarray:
+        (x1, y1) = p1.flatten()
+        (x2, y2) = p2.flatten()
+    elif len(p1) == 2 and len(p2) == 2:
+        (x1, y1) = p1
+        (x2, y2) = p2
+    else:
+        raise TypeError("p1 and p2 must be tuple or ndarray depicting points")
+
     pixels = []
     steep = np.abs(y2 - y1) > np.abs(x2 - x1)
 
@@ -153,4 +170,5 @@ def interpolate_pixels_along_line(p1: pd.DataFrame, p2: pd.DataFrame, width=2):
     else:
         pixels.extend([(xpxl1, ypxl1), (xpxl1, ypxl1 + 1)])
 
-    return pd.DataFrame(pixels, columns=['x', 'y'], dtype=int)
+    # convert to int
+    return list(map(lambda x: tuple(x), np.array(pixels, dtype=np.int)))
