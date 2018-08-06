@@ -3,7 +3,6 @@ import numpy as np
 import itertools
 from skimage.transform import hough_line_peaks, hough_line
 from doc_scanner.math_utils import points2line, find_y_on_lines, intersection_cartesian, find_points_on_lines
-from matplotlib import pyplot as plt
 from doc_scanner.model import Intersection, Frame
 from doc_scanner.transform import four_point_transform
 
@@ -241,6 +240,7 @@ class scanner:
         :return:
         """
         # TODO check intersection inside image
+        from matplotlib import pyplot as plt
         if ax == None:
             ax = plt.figure().axes
 
