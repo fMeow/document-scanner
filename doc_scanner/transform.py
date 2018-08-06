@@ -4,6 +4,7 @@ import cv2
 
 
 def __order_points(pts):
+    pts = np.array(pts)
     # initialzie a list of coordinates that will be ordered
     # such that the first entry in the list is the top-left,
     # the second entry is the top-right, the third is the
