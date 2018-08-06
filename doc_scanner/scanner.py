@@ -186,16 +186,15 @@ class scanner:
             self.corners = None
         return possible_rectangle
 
-    def warp(self, image=None):
-        # TODO auto compute corners
+    def warp(self, image=None, scale=1):
         if not hasattr(self, 'corners'):
             raise KeyError('make sure corners has been detected before warp')
         if self.corners:
             if image is None:
                 image = self.image
-            elif image.shape[0:2] != self.image.shape[0:2]:
+            elif not (np.array(image.shape[0:2]) * scale - np.array(self.image.shape[0:2])).any():
                 raise ValueError("image should be in shape {}".format(self.image.shape[0:2]))
-            self.warped = four_point_transform(image, self.corners.coordinates())
+            self.warped = four_point_transform(image, np.array(self.corners.coordinates()) * scale)
         else:
             raise ValueError("Fail to find possible rectangle")
         return self.warped
