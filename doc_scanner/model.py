@@ -175,17 +175,12 @@ class Frame:
         return self.score() < other.score()
 
     def score(self, image_shape=None):
-        if image_shape == self.image_shape and image_shape is not None:
-            raise ValueError("Image area not set yet")
-        elif self.__score is not None and image_shape == self.image_shape:
+        if self.__score is not None and image_shape == self.image_shape and image_shape:
             return self.__score
         else:
-            if image_shape:
-                self.image_shape = image_shape
-            total_area = self.image_shape[0] * self.image_shape[1]
             scores = []
             for i in range(4):
-                scores.append(self.corners[i].orientation()[i] * self.area() / total_area)
+                scores.append(self.corners[i].orientation()[i] * self.relative_area(image_shape))
             self.__score = sum(scores)
             return self.__score
 
@@ -194,6 +189,14 @@ class Frame:
         a = np.abs(top_left.intersection[1] - bottom_left.intersection[1])
         b = np.abs(top_left.intersection[0] - top_right.intersection[0])
         return a * b * np.sin(np.abs(top_left.line_h[0] - top_left.line_v[0]))
+
+    def relative_area(self, image_shape=None):
+        if image_shape == self.image_shape and image_shape is not None:
+            raise ValueError("Image area not set yet")
+        elif image_shape is not None:
+            self.image_shape = image_shape
+        total_area = self.image_shape[0] * self.image_shape[1]
+        return self.area() / total_area
 
     def coordinates(self):
         """

@@ -20,7 +20,7 @@ class scanner:
         self.calc_intersections()
         self.calc_connectivity()
         self.detect_corner()
-        return self.warp()
+        # return self.warp()
 
     def preprocess(self, kernel_size=15, intensity_lower=0, intensity_upper=255, canny_lower=10, canny_upper=70,
                    erode_ks=3, dilate_ks=15):
@@ -142,14 +142,14 @@ class scanner:
             intersection.connectivity()
         return self.intersections
 
-    def detect_corner(self, threshold=0.4):
+    def detect_corner(self, orientation_score_threshold=0.4, relative_area_threshold=0.3):
         corner = dict()
         for orientation in Intersection.ORIENTATION_ORDER:
             corner[orientation] = list()
         for intersection in self.intersections:
             orientation_score = intersection.orientation()
             for ix in range(4):
-                if orientation_score[ix] > threshold:
+                if orientation_score[ix] > orientation_score_threshold:
                     corner[Intersection.ORIENTATION_ORDER[ix]].append(intersection)
 
         possible_rectangle = list()
@@ -175,20 +175,27 @@ class scanner:
                     continue
                 for top_right, bottom_left in combinations:
                     if bottom_right.line_v == top_right.line_v and bottom_right.line_h == bottom_left.line_h:
-                        possible_rectangle.append(
-                            Frame(top_left, top_right, bottom_right, bottom_left, image_shape=self.edges_img_dilated.shape))
+                        frame = Frame(top_left, top_right, bottom_right, bottom_left,
+                                      image_shape=self.edges_img_dilated.shape)
+                        if frame.relative_area() > relative_area_threshold:
+                            possible_rectangle.append(frame)
+
         if len(possible_rectangle) > 0:
             self.corners = max(possible_rectangle)
         else:
             self.corners = None
         return possible_rectangle
 
-    def warp(self):
+    def warp(self, image=None):
         # TODO auto compute corners
         if not hasattr(self, 'corners'):
             raise KeyError('make sure corners has been detected before warp')
         if self.corners:
-            self.warped = four_point_transform(self.image, self.corners.coordinates())
+            if image is None:
+                image = self.image
+            elif image.shape[0:2] != self.image.shape[0:2]:
+                raise ValueError("image should be in shape {}".format(self.image.shape[0:2]))
+            self.warped = four_point_transform(image, self.corners.coordinates())
         else:
             raise ValueError("Fail to find possible rectangle")
         return self.warped

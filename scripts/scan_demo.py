@@ -37,9 +37,8 @@ for file in files:
     hue = scanner(hsv[:, :, 0])
     saturation = scanner(hsv[:, :, 1])
     intensity = scanner(hsv[:, :, 2])
-
-    intensity_warped = intensity.scan()
-    saturation_warped = saturation.scan()
+    intensity.scan()
+    saturation.scan()
 
     plt.clf()
     plt.ion()
@@ -51,27 +50,42 @@ for file in files:
         print("-------------------- Saturation --------------------")
         saturation.corners.summary()
 
-    ax = plt.subplot(2, 2, 1)
+    ax = plt.subplot(3, 2, 1)
     ax.imshow(intensity.edges_img, cm.gray)
     intensity.plot_lines(ax)
     intensity.reset_plot_view(ax)
 
-    ax = plt.subplot(2, 2, 2)
+    ax = plt.subplot(3, 2, 2)
     ax.imshow(saturation.edges_img, cm.gray)
     saturation.plot_lines(ax)
     saturation.reset_plot_view(ax)
 
-    ax = plt.subplot(2, 2, 3)
+    ax = plt.subplot(3, 2, 3)
     ax.imshow(intensity.edges_img_dilated, cm.gray)
     intensity.plot_lines(ax)
     intensity.plot_corners(ax)
     intensity.reset_plot_view(ax)
 
-    ax = plt.subplot(2, 2, 4)
+    ax = plt.subplot(3, 2, 4)
     ax.imshow(saturation.edges_img_dilated, cm.gray)
     saturation.plot_lines(ax)
     saturation.plot_corners(ax)
     saturation.reset_plot_view(ax)
+
+    ax = plt.subplot(3, 2, 5)
+    try:
+        intensity_warped = intensity.warp(image)
+        ax.imshow(intensity_warped)
+    except Exception:
+        intensity_warped = None
+
+    ax = plt.subplot(3, 2, 6)
+    try:
+        saturation_warped = saturation.warp(image)
+        ax.imshow(saturation_warped)
+    except Exception:
+        saturation_warped = None
+
 
     plt.pause(0.2)
     plt.waitforbuttonpress()
