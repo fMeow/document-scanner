@@ -1,3 +1,4 @@
+#!/bin/python3
 import cv2
 import io
 import base64
