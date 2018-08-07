@@ -241,7 +241,7 @@ class scanner:
         """
         # TODO check intersection inside image
         from matplotlib import pyplot as plt
-        if ax == None:
+        if ax is None:
             ax = plt.figure().axes
 
         if edges:

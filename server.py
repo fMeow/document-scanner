@@ -47,7 +47,8 @@ async def document_scanner(request):
         resize_ratio = width / 500
     else:
         resize_ratio = height / 500
-    resized_image = cv2.resize(image, (0, 0), fx=1 / resize_ratio, fy=1 / resize_ratio, interpolation=cv2.INTER_AREA)
+    resized_image = cv2.resize(image, (0, 0), interpolation=cv2.INTER_AREA,
+                               fx=1 / resize_ratio, fy=1 / resize_ratio, )
 
     # Convert RGB to HSV colorspace
     hsv = cv2.cvtColor(resized_image, cv2.COLOR_RGB2HSV)
