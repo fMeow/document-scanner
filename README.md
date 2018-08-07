@@ -1,4 +1,6 @@
 # Document-Scanner
+[![Build Status](https://travis-ci.org/Guoli-Lyu/document-scanner.svg?branch=master)](https://travis-ci.org/Guoli-Lyu/document-scanner)
+
 Document-Scanner is open-source python package to scan, segment and tranform images of documents as if the documents is scanned by a scanner. It includes predefined pipelines on preprocessing, frame detection, transformation and post processing to add styles.
 
 ## Pipeline

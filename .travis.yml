@@ -1,0 +1,27 @@
+sudo: false
+language: python
+python:
+- '3.6'
+- '3.7'
+- pypy
+install:
+- travis_retry pip install -U .
+- travis_retry pip install -r requirements.txt
+script: invoke test
+jobs:
+  include:
+  - stage: PyPI Release
+    if: tag IS present
+    python: '3.6'
+    env: []
+    install: true
+    script: echo "Releasing to PyPI..."
+    after_success: true
+    deploy:
+      provider: pypi
+      user: Guoli-Lyu
+      password:
+        secure: "VsFr2CpSsOXof/rTNpJ/TubUkF5JWPMzlWW30YwCFFVLEkd85Z9/atJbYBXUbKjhBnsTn9mGCGjRqKg2lQYrfRKbhLaFpqMGjRUKSK8Y/apK6KWcwLv0OFRFGRR1/az6yLfrzZ9HQ2qUVsuAJ6saqevFQNrfTVpu9GD9wlusqD5jjsXr5Z7/MHp9C9fSGRzkT+ZvGxAVd5NSA5OtcIxlCRzZEREzWVgXXxjs0kRAR9+GKyH3c/lKBqDw65rNtnUWc0JSuAcOx9TRJ8wGg9+nrh+rv0E5MlCJ5wDQ8SGKpXgoLJNhd1Vj1twEa3v9JXCu9w5xObvYXah9KNOL6qCCBgrzwtWvwoec2Jth05WgSoK7MA+NaacGKxNthgwg9mJnGtfXPgusK17NdEYXk5FUIpRUOINtx5kJ0AiLuGTjQgGgYRO5+1nHUJOngXuIofHfdpH6gv2rpE0GBYGa56MMWKpxVgeUkC08IuLdhgULgZ9B+GOTnqNbXCke1IqaYcHFCzwIzpH3yvhuYLV9T2zgVIMb7qFC/C5CU8uJGX7X6ROI3xs9829SD1pHufe7U0pKLWCd3/ImS6EPGpGIw0GPzCkmUS1AJuN5/wiJmw6hOc/2Tj6zMloLSpuKAy36fPGt15B91jciEdZK7Mz0nADzFEL5HFN8FshOF2SMLewoE08="
+      on:
+        tags: true
+      distributions: sdist bdist_wheel
