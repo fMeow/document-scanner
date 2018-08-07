@@ -1,71 +1,49 @@
-# Document-Scanner
-Document-Scanner is open-source python package to scan, segment and tranform images of documents as if the documents is scanned by a scanner. It includes predefined pipelines on preprocessing, frame detection, transformation and post processing to add styles.
+# Restful Document Scanner server on python sanic
+- To deploy Restful API document scanner server: docker pull guolilyu/document-scanner
+- Stretch based image is a bit ponderous
+- alpine based image requires trivial works on building opencv3 and scikit-image. **Help Welcomed**
 
-## Pipeline
+## Entry and parameters
+Only **one** entry is available in this server, that is **/document-scanner**. Only POST method is acceptable.
 
-1. Convert to HSV color space
+By default, server accepts image file and return warped image file. Base64 support can be enabled by passing query parameters.
 
-    The following pipelines is applied first on **intensity** slice , or the Value phase, of the original image. If failed to find frame in the intensity image, apply exactly the same processes to **saturation** image. 
-    
-1. Preprocessing
-    1. Blur with Median filter
-    1. Histogram equalization
-    1. Morphological operation (Opening)
-    1. (Optional) Threshold based segmentation.
+Parameters:
+- output-format
+   - jpeg
+   - jpg
+   - png(default)
+- base64
+Enable base64 mode only where parameter **base64** is set.
 
-        Here we assume that the document of interest is mainly white while background is darker.
-        Then we can extract document from background with a proper threshold.
-        After histogram, maybe we can just assume the document lays in the half brighter part on histogram.
-    1. Canny edge detector
-    1. Contour detection
-    1. Morphological Erosion
-    1. Morphological Dilation
-        
-        This step is to dilate the contour to reduce the impact of non-linear edge when calculating connectivity.
-        
-1. Hough Transform
-1. Intersection
-    1. Find the cartesian coordination of intersection points
-    1. Calculate connectivity on every intersections on four direction: up, right, bottom, left.
-1, Corner
-    Compute the possiblity on every intersection points to decide the orientation of corner.
-1. Frame detection
-    1. Find possible frames
-    1. Select the most possible frame
-1. Warp
-1. (**TODO**) Post process
-
-## Demo
-
-Use /scripts/scan_demo.py to see what's happen.
-
-Put images under /data/images and run the scripts.
-
-## Usage
-
-## Restful API server
-
-## Dependencies
-The minimum required dependencies to run document-scanner are:
-
--   Python>=3.7
--   openCV3
--   scikit-image
--   pandas
-
-Use the following command to install dependencies with pip:
+### Usage 
+#### base64
 ```bash
-$ pip install -r requirement.txt
+POST /document-scanner?base64=true
+```
+#### jpeg
+```bash
+POST /document-scanner?output-format=jpeg
+```
+## Deployment
+This server exposed service on port 3000.
+
+A minimal usage should be like:
+```bash
+$ docker run -p3000:3000  guolilyu/document-scanner
 ```
 
-For server, additional denpendencies are:
--   sanic
--   sanic_compress
+## Minimal and manual E2E test
+First locate a jpeg or png file to be scanned and warped on disk, say 854684089.jpg.
 
-Use the following command to install dependencies with pip:
+Then use *curl* command to POST this image and see what's returned.
+
 ```bash
-$ pip install -r server-requirement.txt
+curl -o result.jpeg -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/854684089.jpg" http://localhost:3000/document-scanner\?output-format\=jpeg
+```
+or 
+```bash
+curl  -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/854684089.jpg" http://localhost:3000/document-scanner\?output-format\=jpeg > result.jpeg
 ```
 
-## Contribution
-
+Open result.jpeg and check the result.

@@ -2,3 +2,6 @@ numpy
 pandas
 opencv-python
 scikit-image
+sanic
+sanic_compress
+doc_scanner
