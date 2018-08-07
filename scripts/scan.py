@@ -1,12 +1,11 @@
 import os
 import cv2
 import argparse
-from matplotlib import cm
 from matplotlib import pyplot as plt
 from doc_scanner import scanner
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--show", dest='show', default='mpl')
+parser.add_argument("--show", dest='show', default='cv')
 parser.add_argument("--image-path", dest='image_path', default='./data/images')
 options = parser.parse_args()
 
@@ -45,18 +44,22 @@ for file in files:
         else:
             warped = None
 
-    # plt.clf()
-    # plt.ion()
-    #
-    # ax = plt.subplot(2, 1, 1)
-    # ax.imshow(image)
-    #
-    # ax = plt.subplot(2, 1, 2)
-    # ax.imshow(warped)
-    #
-    # plt.pause(0.2)
-    # plt.waitforbuttonpress()
-    cv2.imshow("Original", image)
-    cv2.imshow("Warped", warped)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if options.show == 'mpl':
+        plt.clf()
+        plt.ion()
+
+        ax = plt.subplot(2, 1, 1)
+        ax.imshow(image)
+
+        ax = plt.subplot(2, 1, 2)
+        ax.imshow(warped)
+
+        plt.pause(0.2)
+        plt.waitforbuttonpress()
+    elif options.show == 'cv':
+        cv2.imshow("Original", image)
+        cv2.imshow("Warped", warped)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    else:
+        raise ValueError("--show must be cv or mpl")
