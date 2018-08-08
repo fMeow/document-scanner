@@ -23,23 +23,25 @@ def intersection_cartesian(L1: pd.DataFrame, L2: pd.DataFrame):
 
 def points2line(p1, p2):
     """
-    compute Ax+By+C=0 given a list of point [(x1,y1)] and [(x2,y2)]
-    :param p1:
-    :param p2:
-    :return:
+    Compute Ax+By+C=0 given a list of point [(x1,y1)] and [(x2,y2)].
+    Single point is also acceptable.
+    :param p1: point in tuple or array (x1,y1) or a list of points in tuple or array [(x1_1,y1_1),(x1_2,y1_2),...]
+    :param p2: point in tuple or array (x2,y2) or a list of points in tuple or array [(x2_1,y2_1),(x2_2,y2_2),...]
+    :return: pd.DataFrame objects of lines in general form(Ax+By+C=0)
     """
-    # if len(points) != 2:
-    #     raise ValueError('points should only exactly 2 points')
-    # elif 'x' not in points.columns or 'y' not in points.columns:
-    #     raise ValueError('points should contain columns x and y')
-
-    # a = points['y'].diff()[1]
-    # b = -points['x'].diff()[1]
-    # c = points.loc[0, 'x'] * points.loc[1, 'y'] - points.loc[1, 'x'] * points.loc[0, 'y']
     p1 = np.array(p1)
     p2 = np.array(p2)
+    if p1.dtype == np.object or p2.dtype == np.object:
+        raise ValueError("p1 and p2 should matrix alike")
+    elif len(p1.shape) == 2 and len(p2.shape) == 2:
+        if p1.shape[1] != 2 or p2.shape[1] != 2:
+            raise ValueError("p1 and p2 should be matrix with column size of exactly 2")
+    elif len(p1.shape) == 1 and len(p1) == 2 and len(p1.shape) == 1 and len(p2) == 2:
+        p1 = p1.reshape(-1, 2)
+        p2 = p2.reshape(-1, 2)
+    else:
+        raise ValueError("Invalid p1 and p2")
 
-    # TODO check shape and dimensions of p1 and p2
     a = (p1[:, 1] - p2[:, 1])
     b = (p2[:, 0] - p1[:, 0])
     c = (p1[:, 0] * p2[:, 1] - p2[:, 0] * p1[:, 1])
@@ -53,14 +55,25 @@ def find_y_on_lines(lines: np.array, x: np.array):
     :param x:
     :return: a list of points, 1th dimension for different x and 2th dimension for different lines
     """
-    # TODO check dimensions
     if len(lines) == 0:
         return lines
     lines = np.array(lines)
-    if len(lines.shape) == 1:
-        lines = lines.reshape(-1, 2)
+    if lines.dtype == np.object:
+        raise ValueError("lines should be matrix alike")
+    elif len(lines.shape) == 1:
+        if len(lines) == 2:
+            lines = lines.reshape(-1, 2)
+        else:
+            raise ValueError("the length of line vector should 2")
+    elif len(lines.shape) == 2:
+        if lines.shape[1] != 2:
+            raise ValueError("lines should be matrix with column size of exactly 2")
+    else:
+        raise ValueError("Invalid lines")
 
     x = np.array(x)
+    if x.dtype == np.object:
+        raise ValueError("x should be matrix alike")
     rho = lines[:, 1].reshape(-1, 1)
     phi = lines[:, 0].reshape(-1, 1)
     y = (rho - x * np.cos(phi)) / np.sin(phi)
@@ -76,9 +89,11 @@ def find_points_on_lines(lines: np.array, x: np.array):
     """
     if len(lines) == 0:
         return lines
+
     lines = np.array(lines)
     if len(lines.shape) == 1:
-        lines = lines.reshape(-1, 2)
+        if len(lines) == 2:
+            lines = lines.reshape(-1, 2)
     x = np.array(x)
 
     y = find_y_on_lines(lines, x)
