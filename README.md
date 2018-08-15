@@ -10,21 +10,46 @@ By default, server accepts image file and return warped image file. Base64 suppo
 
 Parameters:
 - output-format
+
    - jpeg
    - jpg
    - png(default)
-- base64
-Enable base64 mode only where parameter **base64** is set.
+   
+- base64(default to false)
+
+    Enable base64 mode only when parameter **base64** is set. When in base64 mode, both **input** and **output** are in base64 format.
+    
+- enhancement(default to false)
+
+    Enhance brightness and contrast, with special care for color enhancement without introducing artifacts. 
+    
+- grayscale(default to false)
+
+    Grayscale image with enhanced brightness and contrast. 
+    
+    **This option is only enabled when enhancement option is set.**
+
 
 ### Usage 
-#### base64
+#### base64 png without post processing
 ```bash
 POST /document-scanner?base64=true
 ```
-#### jpeg
+#### jpeg without post processing
+Specify the output format to jpeg. By default, base64 is not enable.
 ```bash
 POST /document-scanner?output-format=jpeg
 ```
+#### png with colorful optical document enhancement
+```bash
+POST /document-scanner?enhancement=true
+```
+
+#### png with grayscale optical document enhancement
+```bash
+POST /document-scanner?enhancement=true&grayscale=true
+```
+
 ## Deployment
 This server exposed service on port 3000.
 
