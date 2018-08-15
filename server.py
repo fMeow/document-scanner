@@ -53,11 +53,15 @@ async def document_scanner(request):
     # Convert RGB to HSV colorspace
     hsv = cv2.cvtColor(resized_image, cv2.COLOR_RGB2HSV)
 
+    """
+    First scan gray scale component of images and if failed, then turn to saturation images.
+    """
     # hue ranges from 0-180
     # hue = scanner(hsv[:, :, 0])
     intensity = scanner(hsv[:, :, 2])
     intensity.scan()
     if intensity.corners is not None:
+        # Find corners in intensity images
         warped = intensity.warp(image, scale=resize_ratio)
     else:
         saturation = scanner(hsv[:, :, 1])
@@ -69,7 +73,40 @@ async def document_scanner(request):
 
     if warped is None:
         raise ServerError("Failed to find boundary")
-    ret, image_stream = cv2.imencode(f".{output_format}", warped)
+
+    if request.raw_args.get('enhancement') != 'true':
+        result = warped
+    else:
+        # convert the warped image to grayscale
+        hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
+
+        hue, saturation, gray = cv2.split(hsv)
+
+        """
+        Intensity
+        """
+        sharpen = cv2.GaussianBlur(gray, (5, 5), 3)
+        sharpen = cv2.addWeighted(gray, 1.5, sharpen, -0.5, 0)
+
+        # apply adaptive threshold to get black and white effect
+        gray = cv2.adaptiveThreshold(sharpen, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
+        _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        if request.raw_args.get('grayscale') == 'true':
+            result = cv2.GaussianBlur(gray, (5, 5), 3)
+        else:
+            """
+            Saturation enhancement to boost color
+            """
+            gray_mask = cv2.equalizeHist(gray)
+            gray_mask = cv2.GaussianBlur(gray_mask, (5, 5), 3)
+            saturation = saturation * (gray_mask < 250)
+            saturation = np.uint8(np.clip(saturation * 2, 0, 255))
+
+            result = cv2.cvtColor(cv2.merge((hue, saturation, gray)), cv2.COLOR_HSV2RGB)
+            result = cv2.GaussianBlur(result, (5, 5), 3)
+
+    ret, image_stream = cv2.imencode(f".{output_format}", result)
 
     filename = f"{'.'.join(filename.split('.')[0:-1])}.{output_format}"
     headers = {'Content-length': len(image_stream),
@@ -82,4 +119,4 @@ async def document_scanner(request):
 
 
 if __name__ == "__main__":
-    app.go_fast(host="0.0.0.0", port=8080, access_log=True, debug=True)
+    app.go_fast(host="0.0.0.0", port=3000, access_log=True, debug=True)
