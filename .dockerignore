@@ -36,3 +36,7 @@ Jenkinsfile
 docs*
 readme.md
 README.md
+
+# images
+*.jpg
+*.png
