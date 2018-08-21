@@ -64,11 +64,11 @@ First locate a jpeg or png file to be scanned and warped on disk, say 854684089.
 Then use *curl* command to POST this image and see what's returned.
 
 ```bash
-curl -o result.jpeg -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/854684089.jpg" http://localhost:3000/document-scanner\?output-format\=jpeg
+export IMG=1.jpg && curl -o result_$IMG -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/$IMG" http://localhost:3000/document-scanner\?output-format\=jpeg
 ```
 or 
 ```bash
-curl  -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/854684089.jpg" http://localhost:3000/document-scanner\?output-format\=jpeg > result.jpeg
+export IMG=1.jpg && curl  -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/$IMG" http://localhost:3000/document-scanner\?output-format\=jpeg > result_$IMG
 ```
 
-Open result.jpeg and check the result.
+Open result_1.jpeg and check the result.
