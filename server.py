@@ -78,33 +78,43 @@ async def document_scanner(request):
         result = warped
     else:
         # convert the warped image to grayscale
-        hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
+        # hls = cv2.cvtColor(warped, cv2.COLOR_RGB2HLS)
+        # hue, gray, saturation = cv2.split(hls)
 
+        # HSV is better than HSI/HLS
+        hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
         hue, saturation, gray = cv2.split(hsv)
 
         """
-        Intensity
+        Boost the intensity channel
         """
-        sharpen = cv2.GaussianBlur(gray, (5, 5), 3)
-        sharpen = cv2.addWeighted(gray, 1.5, sharpen, -0.5, 0)
+        # Sharpen image
+        blur = cv2.GaussianBlur(gray, (5, 5), 3)
+        sharpen = cv2.addWeighted(gray, 2, blur, -1, 0)
+        # a better way to get the effect of histogram equalization
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(sharpen)
+        # apply adaptive threshold to get the mask of black items
+        # we can infer that darker items may be pixels of interest like text
+        gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 15)
 
-        # apply adaptive threshold to get black and white effect
-        gray = cv2.adaptiveThreshold(sharpen, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
-        _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # filter by morphological opening to eliminate salt noise
+        kernel_size = 3
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.int8)
+        gray_mask = cv2.morphologyEx(gray_mask, cv2.MORPH_OPEN, kernel)
+
+        # boost brightness with special care of overflow
+        value = 150
+        gray = np.where((255 - gray) > value, gray + value, 255)
+        # darken pixels of interest
+        gray[gray_mask == 255] = np.uint8(gray[gray_mask == 255] * 0.3)
 
         if request.raw_args.get('grayscale') == 'true':
-            result = cv2.GaussianBlur(gray, (5, 5), 3)
+            result = gray
         else:
-            """
-            Saturation enhancement to boost color
-            """
-            gray_mask = cv2.equalizeHist(gray)
-            gray_mask = cv2.GaussianBlur(gray_mask, (5, 5), 3)
-            saturation = saturation * (gray_mask < 250)
-            saturation = np.uint8(np.clip(saturation * 2, 0, 255))
+            result = cv2.cvtColor(cv2.merge((hue, saturation, gray,)), cv2.COLOR_HSV2RGB)
 
-            result = cv2.cvtColor(cv2.merge((hue, saturation, gray)), cv2.COLOR_HSV2RGB)
-            result = cv2.GaussianBlur(result, (5, 5), 3)
+        result = cv2.GaussianBlur(result, (5, 5), 3)
 
     ret, image_stream = cv2.imencode(f".{output_format}", result)
 
@@ -116,6 +126,27 @@ async def document_scanner(request):
         return text(base64.b16decode(image_stream))
     else:
         return raw(image_stream, headers=headers, content_type=content_type)
+
+
+def homomorphic_filter(y, rh=2.5, rl=0.5, cutoff=32):
+    rows, cols = y.shape
+    y_log = np.log(y + 0.01)
+
+    y_fft = np.fft.fft2(y_log)
+
+    y_fft_shift = np.fft.fftshift(y_fft)
+
+    DX = cols / cutoff
+    G = np.ones((rows, cols))
+    for i in range(rows):
+        for j in range(cols):
+            G[i][j] = ((rh - rl) * (1 - np.exp(-((i - rows / 2) ** 2 + (j - cols / 2) ** 2) / (2 * DX ** 2)))) + rl
+
+    result_filter = G * y_fft_shift
+
+    result_interm = np.real(np.fft.ifft2(np.fft.ifftshift(result_filter)))
+
+    return np.exp(result_interm)
 
 
 if __name__ == "__main__":
