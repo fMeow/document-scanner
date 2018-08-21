@@ -45,28 +45,18 @@ Put images under /data/images and run the scripts.
 
 ## Usage
 
-## Restful API server
-
 ## Dependencies
 The minimum required dependencies to run document-scanner are:
 
--   Python>=3.7
+-   Python>=3.6
 -   openCV3
 -   scikit-image
 -   pandas
+-   numpy
 
 Use the following command to install dependencies with pip:
 ```bash
-$ pip install -r requirement.txt
-```
-
-For server, additional denpendencies are:
--   sanic
--   sanic_compress
-
-Use the following command to install dependencies with pip:
-```bash
-$ pip install -r server-requirement.txt
+$ pip install -r requirements.txt
 ```
 
 ## Contribution
