@@ -85,36 +85,48 @@ async def document_scanner(request):
         hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
         hue, saturation, gray = cv2.split(hsv)
 
-        """
-        Boost the intensity channel
-        """
-        # Sharpen image
-        blur = cv2.GaussianBlur(gray, (5, 5), 3)
-        sharpen = cv2.addWeighted(gray, 2, blur, -1, 0)
-        # a better way to get the effect of histogram equalization
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        gray = clahe.apply(sharpen)
-        # apply adaptive threshold to get the mask of black items
-        # we can infer that darker items may be pixels of interest like text
-        gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 15)
-
-        # filter by morphological opening to eliminate salt noise
-        kernel_size = 3
-        kernel = np.ones((kernel_size, kernel_size), dtype=np.int8)
-        gray_mask = cv2.morphologyEx(gray_mask, cv2.MORPH_OPEN, kernel)
-
-        # boost brightness with special care of overflow
-        value = 150
-        gray = np.where((255 - gray) > value, gray + value, 255)
-        # darken pixels of interest
-        gray[gray_mask == 255] = np.uint8(gray[gray_mask == 255] * 0.3)
-
         if request.raw_args.get('grayscale') == 'true':
-            result = gray
+            """
+            Boost the intensity channel
+            """
+            # Sharpen image
+            blur = cv2.GaussianBlur(gray, (5, 5), 3)
+            sharpen = cv2.addWeighted(gray, 2, blur, -1, 0)
+            # a better way to get the effect of histogram equalization
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            gray = clahe.apply(sharpen)
+            # apply adaptive threshold to get the mask of black items
+            # we can infer that darker items may be pixels of interest like text
+            gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
+            # gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 15)
+            #
+            # # filter by morphological opening to eliminate salt noise
+            # kernel_size = 3
+            # kernel = np.ones((kernel_size, kernel_size), dtype=np.int8)
+            # gray_mask = cv2.morphologyEx(gray_mask, cv2.MORPH_OPEN, kernel)
+            #
+            # # boost brightness with special care of overflow
+            # value = 150
+            # gray = np.where((255 - gray) > value, gray + value, 255)
+            # # darken pixels of interest
+            # gray[gray_mask == 255] = np.uint8(gray[gray_mask == 255] * 0.3)
+
+            result = gray_mask
         else:
+            # shape = np.array(gray.shape) // 13
+            # shape = np.floor(np.array(gray.shape) / 13).astype(np.uint)
+            # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=tuple(shape))
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(30, 30))
+            gray = clahe.apply(gray)
             result = cv2.cvtColor(cv2.merge((hue, saturation, gray,)), cv2.COLOR_HSV2RGB)
 
-        result = cv2.GaussianBlur(result, (5, 5), 3)
+            # warped = cv2.cvtColor(warped, cv2.COLOR_RGB2BGR)
+            # result = exposure.equalize_adapthist(warped,clip_limit=0.03) * 256
+            # result = result.astype(np.uint8)
+
+            result = cv2.convertScaleAbs(result, alpha=1.9, beta=-80)
+
+        result = cv2.GaussianBlur(result, (5, 5), 5)
 
     ret, image_stream = cv2.imencode(f".{output_format}", result)
 
