@@ -128,26 +128,5 @@ async def document_scanner(request):
         return raw(image_stream, headers=headers, content_type=content_type)
 
 
-def homomorphic_filter(y, rh=2.5, rl=0.5, cutoff=32):
-    rows, cols = y.shape
-    y_log = np.log(y + 0.01)
-
-    y_fft = np.fft.fft2(y_log)
-
-    y_fft_shift = np.fft.fftshift(y_fft)
-
-    DX = cols / cutoff
-    G = np.ones((rows, cols))
-    for i in range(rows):
-        for j in range(cols):
-            G[i][j] = ((rh - rl) * (1 - np.exp(-((i - rows / 2) ** 2 + (j - cols / 2) ** 2) / (2 * DX ** 2)))) + rl
-
-    result_filter = G * y_fft_shift
-
-    result_interm = np.real(np.fft.ifft2(np.fft.ifftshift(result_filter)))
-
-    return np.exp(result_interm)
-
-
 if __name__ == "__main__":
     app.go_fast(host="0.0.0.0", port=3000, access_log=True, debug=True)
