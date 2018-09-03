@@ -8,6 +8,6 @@ pip install -r requirement.txt --no-cache-dir -i https://mirrors.ustc.edu.cn/pyp
 
 RUN pip install doc_scanner --no-cache-dir -i https://mirrors.ustc.edu.cn/pypi/web/simple
 
-ADD . .
+ADD server.py server.py
 
 CMD python3 -m sanic server.app --host=0.0.0.0 --port=3000
