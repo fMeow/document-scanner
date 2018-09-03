@@ -15,19 +15,25 @@ Parameters:
    - jpg
    - png(default)
    
-- base64(default to false)
+- base64 (default to false)
 
     Enable base64 mode only when parameter **base64** is set. When in base64 mode, both **input** and **output** are in base64 format.
     
-- enhancement(default to false)
+- enhancement (default to false)
 
     Enhance brightness and contrast, with special care for color enhancement without introducing artifacts. 
     
-- grayscale(default to false)
+- grayscale (default to false)
 
     Grayscale image with enhanced brightness and contrast. 
     
     **This option is only enabled when enhancement option is set.**
+    
+- id_card (default to false)
+
+    When id_card is set to true, the image is interpreted as optical id card, which is to be rotated and resized to `673x425px`.
+    
+    Otherwise, the image is regarded as ordinary optical document. In this mode, the image is rotated to portrait when needed, and it's width is limited to `1280px`.
 
 
 ### Usage 
@@ -48,6 +54,11 @@ POST /document-scanner?enhancement=true
 #### png with grayscale optical document enhancement
 ```bash
 POST /document-scanner?enhancement=true&grayscale=true
+```
+
+#### png with colorful optical document enhancement for id card
+```bash
+POST /document-scanner?enhancement=true&id_card=true
 ```
 
 ## Deployment
