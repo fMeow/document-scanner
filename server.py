@@ -4,6 +4,7 @@ import io
 import base64
 import urllib.parse
 
+from PIL import Image, ImageEnhance
 from sanic import Sanic
 from sanic_compress import Compress
 from sanic.response import raw, text
@@ -28,6 +29,9 @@ async def document_scanner(request):
     else:
         raise ServerError("")
 
+    # ----------------------------------------
+    # read image
+    # ----------------------------------------
     if request.raw_args.get('base64') == 'true':
         raw_image = base64.b64decode(request.body)
     else:
@@ -40,8 +44,14 @@ async def document_scanner(request):
     image_stream.seek(0)
     file_bytes = np.asarray(bytearray(image_stream.read()), dtype=np.uint8)
     image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
     if image is None:
         return InvalidUsage("")
+
+    # ----------------------------------------
+    # Reshape and scan
+    # ----------------------------------------
+
     height, width, _ = image.shape
     if height > width:
         resize_ratio = width / 500
@@ -74,13 +84,34 @@ async def document_scanner(request):
     if warped is None:
         raise ServerError("Failed to find boundary")
 
+    # ----------------------------------------
+    # Reshape and rotate
+    # ----------------------------------------
+
+    height, width, _ = warped.shape
+    if request.raw_args.get('id_card') == 'true':
+        im = Image.fromarray(warped)
+        if height > width:
+            im = im.rotate(90, expand=1)
+        im = im.resize((673, 425))
+        warped = np.array(im)
+    else:
+        # normal document
+        if height < width:
+            im = Image.fromarray(warped).rotate(-90, expand=1)
+            warped = np.array(im)
+
+        if width > 1280:
+            resize_ratio = width / 1280
+            warped = cv2.resize(warped, (0, 0), interpolation=cv2.INTER_AREA, fx=1 / resize_ratio,
+                                fy=1 / resize_ratio, )
+
+    # ----------------------------------------
+    # Enhancement
+    # ----------------------------------------
     if request.raw_args.get('enhancement') != 'true':
         result = warped
     else:
-        # convert the warped image to grayscale
-        # hls = cv2.cvtColor(warped, cv2.COLOR_RGB2HLS)
-        # hue, gray, saturation = cv2.split(hls)
-
         # HSV is better than HSI/HLS
         hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
         hue, saturation, gray = cv2.split(hsv)
@@ -98,36 +129,22 @@ async def document_scanner(request):
             # apply adaptive threshold to get the mask of black items
             # we can infer that darker items may be pixels of interest like text
             gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
-            # gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 15)
-            #
-            # # filter by morphological opening to eliminate salt noise
-            # kernel_size = 3
-            # kernel = np.ones((kernel_size, kernel_size), dtype=np.int8)
-            # gray_mask = cv2.morphologyEx(gray_mask, cv2.MORPH_OPEN, kernel)
-            #
-            # # boost brightness with special care of overflow
-            # value = 150
-            # gray = np.where((255 - gray) > value, gray + value, 255)
-            # # darken pixels of interest
-            # gray[gray_mask == 255] = np.uint8(gray[gray_mask == 255] * 0.3)
 
             result = gray_mask
         else:
-            # shape = np.array(gray.shape) // 13
-            # shape = np.floor(np.array(gray.shape) / 13).astype(np.uint)
-            # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=tuple(shape))
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(30, 30))
-            gray = clahe.apply(gray)
-            result = cv2.cvtColor(cv2.merge((hue, saturation, gray,)), cv2.COLOR_HSV2RGB)
+            boosted = Image.fromarray(warped)
+            boosted = ImageEnhance.Brightness(boosted).enhance(1.45)
+            boosted = ImageEnhance.Contrast(boosted).enhance(1.7)
+            result = np.array(boosted)
 
-            # warped = cv2.cvtColor(warped, cv2.COLOR_RGB2BGR)
-            # result = exposure.equalize_adapthist(warped,clip_limit=0.03) * 256
-            # result = result.astype(np.uint8)
+    if request.raw_args.get('id_card') == 'true':
+        pass
+    else:
+        result = cv2.GaussianBlur(result, (3, 3), 5)
 
-            result = cv2.convertScaleAbs(result, alpha=1.9, beta=-80)
-
-        result = cv2.GaussianBlur(result, (5, 5), 5)
-
+    # ----------------------------------------
+    # Output
+    # ----------------------------------------
     ret, image_stream = cv2.imencode(f".{output_format}", result)
 
     filename = f"{'.'.join(filename.split('.')[0:-1])}.{output_format}"
