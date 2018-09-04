@@ -27,7 +27,7 @@ async def document_scanner(request):
     elif output_format in ['png']:
         content_type = f'image/png'
     else:
-        raise ServerError("")
+        raise InvalidUsage("")
 
     # ----------------------------------------
     # read image
@@ -72,70 +72,66 @@ async def document_scanner(request):
     intensity.scan()
     if intensity.corners is not None:
         # Find corners in intensity images
-        warped = intensity.warp(image, scale=resize_ratio)
+        warped = (True, intensity.warp(image, scale=resize_ratio))
     else:
         saturation = scanner(hsv[:, :, 1])
         saturation.scan()
         if saturation.corners is not None:
-            warped = saturation.warp(image, scale=resize_ratio)
+            warped = (True, saturation.warp(image, scale=resize_ratio))
         else:
-            warped = None
-
-    if warped is None:
-        raise ServerError("Failed to find boundary")
+            warped = (False, image)
+    warped_result, warped_image = warped
 
     # ----------------------------------------
     # Reshape and rotate
     # ----------------------------------------
 
-    height, width, _ = warped.shape
+    height, width, _ = warped_image.shape
     if request.raw_args.get('id_card') == 'true':
-        im = Image.fromarray(warped)
+        im = Image.fromarray(warped_image)
         if height > width:
             im = im.rotate(90, expand=1)
         im = im.resize((673, 425))
-        warped = np.array(im)
+        warped_image = np.array(im)
     else:
         # normal document
         if height < width:
-            im = Image.fromarray(warped).rotate(-90, expand=1)
-            warped = np.array(im)
+            im = Image.fromarray(warped_image).rotate(-90, expand=1)
+            warped_image = np.array(im)
 
         if width > 1280:
             resize_ratio = width / 1280
-            warped = cv2.resize(warped, (0, 0), interpolation=cv2.INTER_AREA, fx=1 / resize_ratio,
-                                fy=1 / resize_ratio, )
+            warped_image = cv2.resize(warped_image, (0, 0), interpolation=cv2.INTER_AREA, fx=1 / resize_ratio,
+                                      fy=1 / resize_ratio, )
 
     # ----------------------------------------
     # Enhancement
     # ----------------------------------------
     if request.raw_args.get('enhancement') != 'true':
-        result = warped
-    else:
+        result = warped_image
+    elif request.raw_args.get('grayscale') == 'true':
+        """
+        Boost the intensity channel
+        """
         # HSV is better than HSI/HLS
-        hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(warped_image, cv2.COLOR_RGB2HSV)
         hue, saturation, gray = cv2.split(hsv)
+        # Sharpen image
+        blur = cv2.GaussianBlur(gray, (5, 5), 3)
+        sharpen = cv2.addWeighted(gray, 2, blur, -1, 0)
+        # a better way to get the effect of histogram equalization
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(sharpen)
+        # apply adaptive threshold to get the mask of black items
+        # we can infer that darker items may be pixels of interest like text
+        gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
 
-        if request.raw_args.get('grayscale') == 'true':
-            """
-            Boost the intensity channel
-            """
-            # Sharpen image
-            blur = cv2.GaussianBlur(gray, (5, 5), 3)
-            sharpen = cv2.addWeighted(gray, 2, blur, -1, 0)
-            # a better way to get the effect of histogram equalization
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            gray = clahe.apply(sharpen)
-            # apply adaptive threshold to get the mask of black items
-            # we can infer that darker items may be pixels of interest like text
-            gray_mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 15)
-
-            result = gray_mask
-        else:
-            boosted = Image.fromarray(warped)
-            boosted = ImageEnhance.Brightness(boosted).enhance(1.45)
-            boosted = ImageEnhance.Contrast(boosted).enhance(1.7)
-            result = np.array(boosted)
+        result = gray_mask
+    else:
+        boosted = Image.fromarray(warped_image)
+        boosted = ImageEnhance.Brightness(boosted).enhance(1.45)
+        boosted = ImageEnhance.Contrast(boosted).enhance(1.7)
+        result = np.array(boosted)
 
     if request.raw_args.get('id_card') == 'true':
         pass
@@ -149,7 +145,8 @@ async def document_scanner(request):
 
     filename = f"{'.'.join(filename.split('.')[0:-1])}.{output_format}"
     headers = {'Content-length': len(image_stream),
-               'Content-Disposition': f'attachment;filename="{urllib.parse.quote(filename)}"'}
+               'Content-Disposition': f'attachment;filename="{urllib.parse.quote(filename)}"',
+               'Scanned': warped_result}
 
     if request.args.get('base64'):
         return text(base64.b16decode(image_stream))
