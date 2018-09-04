@@ -128,9 +128,21 @@ async def document_scanner(request):
 
         result = gray_mask
     else:
+        brightness = request.raw_args.get('brightness')
+        if brightness is None:
+            brightness = 1.45
+        else:
+            brightness = float(brightness)
+
+        contrast = request.raw_args.get('contrast')
+        if contrast is None:
+            contrast = 1.45
+        else:
+            contrast = float(contrast)
+
         boosted = Image.fromarray(warped_image)
-        boosted = ImageEnhance.Brightness(boosted).enhance(1.45)
-        boosted = ImageEnhance.Contrast(boosted).enhance(1.7)
+        boosted = ImageEnhance.Brightness(boosted).enhance(brightness)
+        boosted = ImageEnhance.Contrast(boosted).enhance(contrast)
         result = np.array(boosted)
 
     if request.raw_args.get('id_card') == 'true':
