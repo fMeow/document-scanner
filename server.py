@@ -3,8 +3,11 @@ import cv2
 import io
 import base64
 import urllib.parse
+import os
 
 from PIL import Image, ImageEnhance
+import subprocess
+import tempfile
 from sanic import Sanic
 from sanic_compress import Compress
 from sanic.response import raw, text
@@ -128,22 +131,20 @@ async def document_scanner(request):
 
         result = gray_mask
     else:
-        brightness = request.raw_args.get('brightness')
-        if brightness is None:
-            brightness = 1.45
-        else:
-            brightness = float(brightness)
+        level = request.raw_args.get('brightness') if request.raw_args.get('brightness') else "25%"
+        contrast = request.raw_args.get('contrast') if request.raw_args.get('contrast') else "2,25%"
 
-        contrast = request.raw_args.get('contrast')
-        if contrast is None:
-            contrast = 1.45
-        else:
-            contrast = float(contrast)
+        tmp_filename = f'{tempfile.mktemp()}.png'
 
-        boosted = Image.fromarray(warped_image)
-        boosted = ImageEnhance.Brightness(boosted).enhance(brightness)
-        boosted = ImageEnhance.Contrast(boosted).enhance(contrast)
-        result = np.array(boosted)
+        cv2.imwrite(tmp_filename, warped_image)
+
+        # cmd = ['magick', 'convert', '-level', level, '-sigmoidal-contrast', contrast, tmp_filename, tmp_filename]
+        cmd = ['convert', '-level', level, '-sigmoidal-contrast', contrast, tmp_filename, tmp_filename]
+        subprocess.check_call(cmd)
+
+        result = cv2.imread(tmp_filename)
+
+        os.remove(tmp_filename)
 
     if request.raw_args.get('id_card') == 'true':
         pass
