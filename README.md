@@ -61,6 +61,12 @@ POST /document-scanner?enhancement=true&grayscale=true
 POST /document-scanner?enhancement=true&id_card=true
 ```
 
+### Result
+
+Scanned images is delivered in HTTP body either in binary format or base64 as requested.
+
+The state of scanning is indicated in HTTP header as `Scanned: True` or `Scanned: False` when the corners of optical images are successfully detected or failed, respectively.
+
 ## Deployment
 This server exposed service on port 3000.
 
@@ -79,7 +85,27 @@ export IMG=1.jpg && curl -o result_$IMG -X POST -H "Content-Type: multipart/form
 ```
 or 
 ```bash
-export IMG=1.jpg && curl  -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/$IMG" http://localhost:3000/document-scanner\?output-format\=jpeg > result_$IMG
+export IMG=1.jpg && curl -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/$IMG" http://localhost:3000/document-scanner\?output-format\=jpeg > result_$IMG
 ```
 
 Open result_1.jpeg and check the result.
+
+To have a intuitive look on the `Scanned` state, we can use cUrl to see the header in response.
+```bash
+export IMG=1.jpg && curl -s -v -X POST -H "Content-Type: multipart/form-data"  -F "data=@data/$IMG" http://localhost:3000/document-scanner\?output-format\=jpeg > /dev/null
+```
+
+You should see as following when corners is detected successfully.
+
+```bash
+< HTTP/1.1 200 OK
+< Connection: keep-alive
+< Keep-Alive: 5
+< Content-length: 358470
+< Content-Disposition: attachment;filename="1.jpg"
+< Scanned: True
+< Content-Length: 358470
+< Content-Type: image/jpeg
+```
+
+Note that there is a item named `Scanner` in header.
