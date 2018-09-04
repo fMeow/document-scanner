@@ -34,6 +34,18 @@ Parameters:
     When id_card is set to true, the image is interpreted as optical id card, which is to be rotated and resized to `673x425px`.
     
     Otherwise, the image is regarded as ordinary optical document. In this mode, the image is rotated to portrait when needed, and it's width is limited to `1280px`.
+    
+- brightness (float number default to 1.45)
+
+    Post process for brightness. 
+    
+    A factor of 0.0 gives a black image, factor 1.0 gives the original image.
+
+- contrast (float number default to 1.45)
+
+    Post process for contrast. 
+    
+    A factor of 0.0 gives an solid grey image, factor 1.0 gives the original image.
 
 
 ### Usage 
@@ -61,7 +73,12 @@ POST /document-scanner?enhancement=true&grayscale=true
 POST /document-scanner?enhancement=true&id_card=true
 ```
 
-### Result
+#### png with colorful optical document enhancement for id card with specific contrast enhancement and brightness enhancement
+```bash
+POST /document-scanner?enhancement=true&id_card=true&brightness=1.7&contrast=1.6
+```
+
+## Result
 
 Scanned images is delivered in HTTP body either in binary format or base64 as requested.
 
