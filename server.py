@@ -131,8 +131,12 @@ async def document_scanner(request):
 
         result = gray_mask
     else:
-        level = request.raw_args.get('brightness') if request.raw_args.get('brightness') else "25%"
-        contrast = request.raw_args.get('contrast') if request.raw_args.get('contrast') else "2,25%"
+        if warped_result:
+            level = request.raw_args.get('brightness') if request.raw_args.get('brightness') else "25%"
+            contrast = request.raw_args.get('contrast') if request.raw_args.get('contrast') else "2,25%"
+        else:
+            level = request.raw_args.get('failed_brightness') if request.raw_args.get('brightness') else "15%"
+            contrast = request.raw_args.get('failed_contrast') if request.raw_args.get('contrast') else "2,15%"
 
         tmp_filename = f'{tempfile.mktemp()}.png'
 
