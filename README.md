@@ -35,6 +35,7 @@ Parameters:
     
     Otherwise, the image is regarded as ordinary optical document. In this mode, the image is rotated to portrait when needed, and it's width is limited to `1280px`.
     
+### TAG Latest
 - brightness (float number default to 1.45)
 
     Post process for brightness. 
@@ -47,6 +48,18 @@ Parameters:
     
     A factor of 0.0 gives an solid grey image, factor 1.0 gives the original image.
 
+### TAG Magick
+This version of document scanner call the image magick command directly from bash shell. Thus parameters given to server are consistent with the image magick command.
+
+    
+- brightness (string default to `25%`)
+
+    Exactly, the `brightness ` parameter is for the `-level` parameter. So clients can pass `brighenss=25%` in query parameter.
+
+- contrast (string default to `2,25%`)
+    
+    Exactly, the `contrast ` parameter is for the `-sigmoidal-contrast` parameter. So clients can pass `contrast=2,25%` in query parameter.
+    
 
 ### Usage 
 #### base64 png without post processing
