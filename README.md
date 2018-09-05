@@ -48,6 +48,21 @@ Parameters:
     
     A factor of 0.0 gives an solid grey image, factor 1.0 gives the original image.
 
+- failed_brightness (float number default to 1.25)
+
+    Post process for brightness. 
+    
+    A factor of 0.0 gives a black image, factor 1.0 gives the original image.
+    
+    This parameter is only used when the scanning process failed.
+
+- failed_contrast (float number default to 1.25)
+    
+    Post process for contrast. 
+    
+    A factor of 0.0 gives an solid grey image, factor 1.0 gives the original image.
+    
+    This parameter is only used when the scanning process failed.
 ### TAG Magick
 This version of document scanner call the image magick command directly from bash shell. Thus parameters given to server are consistent with the image magick command.
 
@@ -60,6 +75,17 @@ This version of document scanner call the image magick command directly from bas
     
     Exactly, the `contrast ` parameter is for the `-sigmoidal-contrast` parameter. So clients can pass `contrast=2,25%` in query parameter.
     
+- failed_brightness (string default to `15%`)
+
+    Exactly, the `failed_brightness ` parameter is for the `-level` parameter. So clients can pass `failed_brighenss=15%` in query parameter.
+    
+    This parameter is only used when the scanning process failed.
+
+- failed_contrast (string default to `2,15%`)
+    
+    Exactly, the `failed_contrast ` parameter is for the `-sigmoidal-contrast` parameter. So clients can pass `failed_contrast=2,15%` in query parameter.
+    
+    This parameter is only used when the scanning process failed.
 
 ### Usage 
 #### base64 png without post processing
