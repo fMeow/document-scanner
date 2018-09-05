@@ -128,17 +128,30 @@ async def document_scanner(request):
 
         result = gray_mask
     else:
-        brightness = request.raw_args.get('brightness')
-        if brightness is None:
-            brightness = 1.45
-        else:
-            brightness = float(brightness)
+        if warped_result:
+            brightness = request.raw_args.get('brightness')
+            if brightness is None:
+                brightness = 1.45
+            else:
+                brightness = float(brightness)
 
-        contrast = request.raw_args.get('contrast')
-        if contrast is None:
-            contrast = 1.45
+            contrast = request.raw_args.get('contrast')
+            if contrast is None:
+                contrast = 1.45
+            else:
+                contrast = float(contrast)
         else:
-            contrast = float(contrast)
+            brightness = request.raw_args.get('failed_brightness')
+            if brightness is None:
+                brightness = 1.25
+            else:
+                brightness = float(brightness)
+
+            contrast = request.raw_args.get('failed_contrast')
+            if contrast is None:
+                contrast = 1.25
+            else:
+                contrast = float(contrast)
 
         boosted = Image.fromarray(warped_image)
         boosted = ImageEnhance.Brightness(boosted).enhance(brightness)
