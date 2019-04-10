@@ -1,65 +1,95 @@
 import os
-import cv2
+import pathlib
 import argparse
+
+import cv2
+import numpy as np
 from matplotlib import pyplot as plt
+from PIL import Image
+
 from doc_scanner import scanner
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--show", dest='show', default='cv')
-parser.add_argument("--image-path", dest='image_path', default='./data/images')
-options = parser.parse_args()
+def scan(path, ):
+    image = cv2.imread(path)
 
-files = os.listdir(options.image_path)
-for file in files:
-    filepath = os.path.join(options.image_path, file)
-    if os.path.isdir(filepath):
-        continue
-    else:
-        if not filepath.endswith('jpg'):
-            continue
-    image = cv2.imread(os.path.join(options.image_path, file))
+    # ----------------------------------------
+    # Reshape and scan
+    # ----------------------------------------
 
-    # resize image
     height, width, _ = image.shape
     if height > width:
         resize_ratio = width / 500
     else:
         resize_ratio = height / 500
-    resized_image = cv2.resize(image, (0, 0), fx=1 / resize_ratio, fy=1 / resize_ratio, interpolation=cv2.INTER_AREA)
+    resized_image = cv2.resize(image, (0, 0), interpolation=cv2.INTER_AREA,
+                               fx=1 / resize_ratio, fy=1 / resize_ratio, )
 
     # Convert RGB to HSV colorspace
     hsv = cv2.cvtColor(resized_image, cv2.COLOR_RGB2HSV)
 
+    """
+    First scan gray scale component of images and if failed, then turn to saturation images.
+    """
     # hue ranges from 0-180
     # hue = scanner(hsv[:, :, 0])
     intensity = scanner(hsv[:, :, 2])
     intensity.scan()
     if intensity.corners is not None:
-        warped = intensity.warp(image, scale=resize_ratio)
+        # Find corners in intensity images
+        warped = (True, intensity.warp(image, scale=resize_ratio))
     else:
         saturation = scanner(hsv[:, :, 1])
         saturation.scan()
         if saturation.corners is not None:
-            warped = saturation.warp(image, scale=resize_ratio)
+            warped = (True, saturation.warp(image, scale=resize_ratio))
         else:
-            warped = None
+            warped = (False, image)
+    scan_ok, warped_image = warped
 
-    if options.show == 'mpl':
-        plt.clf()
-        plt.ion()
+    # ----------------------------------------
+    # Reshape and rotate
+    # ----------------------------------------
 
-        ax = plt.subplot(2, 1, 1)
-        ax.imshow(image)
+    # normal document
+    if height < width:
+        im = Image.fromarray(warped_image).rotate(-90, expand=1)
+        warped_image = np.array(im)
 
-        ax = plt.subplot(2, 1, 2)
-        ax.imshow(warped)
+    if width > 1280:
+        resize_ratio = width / 1280
+        warped_image = cv2.resize(warped_image, (0, 0), interpolation=cv2.INTER_AREA, fx=1 / resize_ratio,
+                                    fy=1 / resize_ratio, )
 
-        plt.pause(0.2)
-        plt.waitforbuttonpress()
-    elif options.show == 'cv':
-        cv2.imshow("Original", image)
-        cv2.imshow("Warped", warped)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-    else:
-        raise ValueError("--show must be cv or mpl")
+    # Only for non ID card document
+    result = cv2.GaussianBlur(warped_image, (3, 3), 5)
+    return scan_ok, result
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from_dir", dest='from_dir', default='./data')
+    parser.add_argument("--to_dir", dest='to_dir', default='./output')
+    args = parser.parse_args()
+
+    success_dir = os.path.join(args.to_dir, 'success')
+    fail_dir = os.path.join(args.to_dir, 'fail')
+
+    pathlib.Path(success_dir).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(fail_dir).mkdir(parents=True, exist_ok=True)
+
+    files = os.listdir(args.from_dir)
+    for i, file in enumerate(files):
+        filepath = os.path.join(args.from_dir, file)
+        if os.path.isdir(filepath):
+            continue
+        else:
+            if not filepath.endswith('jpg'):
+                continue
+        ok, result = scan(filepath)
+
+        if ok:
+            path = os.path.join(success_dir, file)
+        else:
+            path = os.path.join(fail_dir, file)
+        cv2.imwrite(path, result)
+        print(f"{i}/{len(files)}", end='\r', flush=True)
