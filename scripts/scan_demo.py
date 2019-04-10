@@ -99,7 +99,7 @@ if __name__ == "__main__":
             cv2.imshow('intensity edge', intensity.edges_img)
             # cv2.imshow('hue edge', hue_edges)
             # cv2.imshow('intensity', intensity_blurred)
-            cv2.imshow('intensity contour', intensity.)
+            cv2.imshow('intensity contour', intensity)
             # cv2.imshow('saturation contour', saturation_with_contours)
 
             cv2.waitKey(0)
