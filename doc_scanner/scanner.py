@@ -69,7 +69,7 @@ class scanner:
         # TODO decide canny thresholds
         # TODO use hough line transform instead of canny edge detector
         edges = cv2.Canny(self.filterred, canny_lower, canny_upper, L2gradient=True, apertureSize=3)
-        _, contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.edges_img = cv2.drawContours(np.zeros(self.image.shape[0:2]), contours, -1, (128, 255, 0), 3)
         # -------------------- Dilation --------------------
         kernel = np.ones((dilate_ks, dilate_ks), dtype=np.int8)
