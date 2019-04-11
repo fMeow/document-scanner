@@ -6,13 +6,14 @@ matrix:
       dist: xenial
       sudo: true
 cache: pip
-install:
-  - travis_retry pip install -U .
-  - travis_retry pip install -U invoke flake8 pytest
-  - travis_retry pip install -r requirements.txt
-script: invoke test
 jobs:
   include:
+    - stage: test 
+      install:
+        - travis_retry pip install -U .
+        - travis_retry pip install -U invoke flake8 pytest
+        - travis_retry pip install -r requirements.txt
+      script: invoke test
     - stage: PyPI Release
       if: tag IS present
       python: "3.6"
