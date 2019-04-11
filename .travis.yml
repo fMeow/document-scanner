@@ -1,10 +1,10 @@
-sudo: false
 language: python
 matrix:
   include:
+    - python: 3.6
     - python: 3.7
       dist: xenial
-    - python: "3.6"
+      sudo: true
 cache: pip
 install:
   - travis_retry pip install -U .
