@@ -3,10 +3,10 @@ FROM python:3.7-stretch
 WORKDIR /usr/src/app
 
 ADD requirement.txt requirement.txt
-RUN pip install numpy cython --no-cache-dir -i https://mirrors.ustc.edu.cn/pypi/web/simple && \
-pip install -r requirement.txt --no-cache-dir -i https://mirrors.ustc.edu.cn/pypi/web/simple
+RUN pip install numpy cython --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ && \
+pip install -r requirement.txt --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
 
-RUN pip install doc_scanner --no-cache-dir -i https://mirrors.ustc.edu.cn/pypi/web/simple
+RUN pip install git+https://github.com/guoli-lyu/document-scanner.git@master
 
 ADD server.py server.py
 
