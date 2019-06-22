@@ -185,7 +185,7 @@ class scanner:
             self.corners = None
         return possible_rectangle
 
-    def warp(self, image=None, scale=1):
+    def coordinates(self, image=None, scale=1):
         if not hasattr(self, 'corners'):
             raise KeyError('make sure corners has been detected before warp')
         if self.corners:
@@ -193,9 +193,14 @@ class scanner:
                 image = self.image
             elif not (np.array(image.shape[0:2]) * scale - np.array(self.image.shape[0:2])).any():
                 raise ValueError("image should be in shape {}".format(self.image.shape[0:2]))
-            self.warped = four_point_transform(image, np.array(self.corners.coordinates()) * scale)
+            coordinates = np.array(self.corners.coordinates()) * scale
         else:
             raise ValueError("Fail to find possible rectangle")
+        return coordinates
+
+    def warp(self, image=None, scale=1):
+        coordinates = self.coordinates(image, scale)
+        self.warped = four_point_transform(image, coordinates)
         return self.warped
 
     def plot_lines(self, ax):
