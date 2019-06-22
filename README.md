@@ -117,11 +117,29 @@ POST /document-scanner?enhancement=true&id_card=true
 POST /document-scanner?enhancement=true&id_card=true&brightness=1.7&contrast=1.6
 ```
 
+#### Coordinates
+```bash
+POST /document-scanner?output-format=coordinates
+```
+
 ## Result
 
 Scanned images is delivered in HTTP body either in binary format or base64 as requested.
 
 The state of scanning is indicated in HTTP header as `Scanned: True` or `Scanned: False` when the corners of optical images are successfully detected or failed, respectively.
+
+### Coordinates
+
+- Scanned
+
+    ```json
+    {"scanned":true,"coordinates":[[265,64],[784,61],[764,558],[281,577]]}
+    ```
+- Failed to scanned
+
+    ```json
+    {"scanned":false,"coordinates":[]}
+    ```
 
 ## Deployment
 This server exposed service on port 3000.
