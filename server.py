@@ -10,11 +10,13 @@ import subprocess
 import tempfile
 from sanic import Sanic
 from sanic_compress import Compress
-from sanic.response import raw, text
+from sanic.response import raw, text, json
 from sanic.exceptions import InvalidUsage, ServerError
+import random
 
 import numpy as np
 from doc_scanner import scanner
+from doc_scanner.transform import four_point_transform
 
 app = Sanic()
 Compress(app)
@@ -23,19 +25,11 @@ Compress(app)
 @app.post('/document-scanner')
 async def document_scanner(request):
     output_format = request.args.get('output-format')
-    if output_format is None:
-        output_format = 'png'
-    if output_format in ['jpg', 'jpeg']:
-        content_type = f'image/jpeg'
-    elif output_format in ['png']:
-        content_type = f'image/png'
-    else:
-        raise InvalidUsage("")
-
     # ----------------------------------------
     # read image
     # ----------------------------------------
     if request.raw_args.get('base64') == 'true':
+        filename = str(random.randint(1e15, 1e16 - 1))
         raw_image = base64.b64decode(request.body)
     else:
         if len(request.files) != 1:
@@ -75,15 +69,25 @@ async def document_scanner(request):
     intensity.scan()
     if intensity.corners is not None:
         # Find corners in intensity images
-        warped = (True, intensity.warp(image, scale=resize_ratio))
+        warped = (True, intensity)
     else:
         saturation = scanner(hsv[:, :, 1])
         saturation.scan()
         if saturation.corners is not None:
-            warped = (True, saturation.warp(image, scale=resize_ratio))
+            warped = (True, saturation)
         else:
             warped = (False, image)
+
     warped_result, warped_image = warped
+    if warped_result:
+        coordinates = warped_image.coordinates(image, resize_ratio)
+        warped_image = four_point_transform(image, coordinates)
+        coordinates = coordinates.astype(int).tolist()
+    else:
+        coordinates = []
+
+    if output_format == 'coordinates':
+        return json({"scanned": warped_result, "coordinates": coordinates})
 
     # ----------------------------------------
     # Reshape and rotate
@@ -158,6 +162,17 @@ async def document_scanner(request):
     # ----------------------------------------
     # Output
     # ----------------------------------------
+    if output_format is None:
+        output_format = 'png'
+    if output_format in ['jpg', 'jpeg']:
+        content_type = f'image/jpeg'
+    elif output_format in ['png']:
+        content_type = f'image/png'
+    elif output_format == 'coordinates':
+        raise ServerError("Coordinates")
+    else:
+        raise InvalidUsage("")
+
     ret, image_stream = cv2.imencode(f".{output_format}", result)
 
     filename = f"{'.'.join(filename.split('.')[0:-1])}.{output_format}"
@@ -173,3 +188,4 @@ async def document_scanner(request):
 
 if __name__ == "__main__":
     app.go_fast(host="0.0.0.0", port=3000, access_log=True, debug=True)
+
