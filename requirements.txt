@@ -1,4 +1,4 @@
 numpy==1.19.4
 pandas==1.2.4
 opencv-python==4.5.1.48
-scikit-image==0.17.2
+scikit-image==0.18.1
