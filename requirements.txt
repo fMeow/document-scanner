@@ -1,4 +1,4 @@
-numpy==1.24.3
+numpy==1.25.0
 pandas==1.4.1
 opencv-python==4.7.0.68
 scikit-image==0.19.3
