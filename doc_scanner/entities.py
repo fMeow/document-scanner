@@ -1,11 +1,13 @@
-import numpy as np
 from functools import total_ordering
-from doc_scanner.math_utils import interpolate_pixels_along_line, find_points_on_lines
+
+import numpy as np
+
+from doc_scanner.math_utils import find_points_on_lines, interpolate_pixels_along_line
 
 
 class Intersection:
-    ORDER = ['top', 'right', 'bottom', 'left']
-    ORIENTATION_ORDER = ['top-left', 'top-right', 'bottom-right', 'bottom-left']
+    ORDER = ["top", "right", "bottom", "left"]
+    ORIENTATION_ORDER = ["top-left", "top-right", "bottom-right", "bottom-left"]
 
     def __init__(self, intersection, line_v, line_h, x=None, image=None, along_length=50, width=3):
         """
@@ -79,12 +81,12 @@ class Intersection:
             longth = [0] * 4
             ends = [0] * 4
             for ix, point in enumerate(self.corners):
-                point = np.array(point).reshape(1, 2)
+                point_arr = np.array(point).reshape(1, 2)
                 intersection = np.array(self.intersection).reshape(1, 2)
                 # l2 norm (euclidean distance) of difference
-                distance = np.linalg.norm(point - intersection)
+                distance = np.linalg.norm(point_arr - intersection)
                 ratio = self.along_length / distance
-                ends[ix] = np.round((1 - ratio) * intersection + ratio * point).astype(np.int)
+                ends[ix] = np.round((1 - ratio) * intersection + ratio * point_arr).astype(np.int_)
                 pixels = interpolate_pixels_along_line(intersection, ends[ix], self.width)
 
                 # calculate the numbers of pixels that is not 0 in contour mask
@@ -103,7 +105,9 @@ class Intersection:
             self.__connectivity = tuple(np.array(hits) / np.array(self.longth))
             return self.__connectivity
 
-    def orientation(self, ):
+    def orientation(
+        self,
+    ):
         if self.__orientation:
             return self.__orientation
         else:
@@ -119,35 +123,35 @@ class Intersection:
             return self.__orientation
 
     def __repr__(self):
-        return 'Cross at: ({:.2f}, {:.2f})'.format(*self.intersection)
+        return "Cross at: ({:.2f}, {:.2f})".format(*self.intersection)
 
     def summary(self, one_line=False, println=True):
-        summary = 'Cross at: ({:.2f}, {:.2f})'.format(*self.intersection)
+        summary = "Cross at: ({:.2f}, {:.2f})".format(*self.intersection)
 
         if not one_line:
-            summary += '\n'
+            summary += "\n"
         else:
-            summary += '\t'
+            summary += "\t"
 
-        summary += 'Connectivity: '
+        summary += "Connectivity: "
         connectivity = self.connectivity()
         for i in range(4):
-            summary += '{:.4f}({}/{}), '.format(connectivity[i], self.hits[i], self.longth[i])
+            summary += f"{connectivity[i]:.4f}({self.hits[i]}/{self.longth[i]}), "
 
         if not one_line:
-            summary += '\n'
+            summary += "\n"
         else:
-            summary += '\t'
+            summary += "\t"
 
-        summary += 'Orientation scores:'
+        summary += "Orientation scores:"
         scores = self.orientation()
         for i in range(4):
-            summary += '{:.4f}, '.format(scores[i])
+            summary += f"{scores[i]:.4f}, "
 
         if not one_line:
-            summary += '\n'
+            summary += "\n"
         else:
-            summary += '\t'
+            summary += "\t"
 
         if println:
             print(summary)
@@ -157,10 +161,16 @@ class Intersection:
 
 @total_ordering
 class Frame:
-    ORIENTATION_ORDER = ['top-left', 'top-right', 'bottom-right', 'bottom-left']
+    ORIENTATION_ORDER = ["top-left", "top-right", "bottom-right", "bottom-left"]
 
-    def __init__(self, top_left: Intersection, top_right: Intersection, bottom_right: Intersection,
-                 bottom_left: Intersection, image_shape=None):
+    def __init__(
+        self,
+        top_left: Intersection,
+        top_right: Intersection,
+        bottom_right: Intersection,
+        bottom_left: Intersection,
+        image_shape=None,
+    ):
         self.corners = (top_left, top_right, bottom_right, bottom_left)
         self.__score = None
         self.image_shape = image_shape
@@ -173,6 +183,11 @@ class Frame:
 
     def __lt__(self, other):
         return self.score() < other.score()
+
+    def __hash__(self):
+        # Hash based on corner intersections (immutable identifiers)
+        # This ensures equal objects have the same hash
+        return hash(tuple(corner.intersection for corner in self.corners))
 
     def score(self, image_shape=None):
         if self.__score is not None and image_shape == self.image_shape and image_shape:
@@ -214,9 +229,9 @@ class Frame:
     def summary(self):
         summary = ""
         for i in range(4):
-            summary += "{}: ".format(self.ORIENTATION_ORDER[i])
+            summary += f"{self.ORIENTATION_ORDER[i]}: "
             summary += self.corners[i].summary(one_line=True, println=False)
-            summary += '\n'
-        summary += 'Area: {}'.format(self.area())
+            summary += "\n"
+        summary += f"Area: {self.area()}"
 
         print(summary)

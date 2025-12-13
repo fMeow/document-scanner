@@ -1,6 +1,6 @@
+import argparse
 import os
 import pathlib
-import argparse
 
 import cv2
 import numpy as np
@@ -8,7 +8,8 @@ from PIL import Image
 
 from doc_scanner import scanner
 
-def scan(path, ):
+
+def scan(path):
     image = cv2.imread(path)
 
     # ----------------------------------------
@@ -20,8 +21,13 @@ def scan(path, ):
         resize_ratio = width / 500
     else:
         resize_ratio = height / 500
-    resized_image = cv2.resize(image, (0, 0), interpolation=cv2.INTER_AREA,
-                               fx=1 / resize_ratio, fy=1 / resize_ratio, )
+    resized_image = cv2.resize(
+        image,
+        (0, 0),
+        interpolation=cv2.INTER_AREA,
+        fx=1 / resize_ratio,
+        fy=1 / resize_ratio,
+    )
 
     # Convert RGB to HSV colorspace
     hsv = cv2.cvtColor(resized_image, cv2.COLOR_RGB2HSV)
@@ -56,8 +62,13 @@ def scan(path, ):
 
     if width > 1280:
         resize_ratio = width / 1280
-        warped_image = cv2.resize(warped_image, (0, 0), interpolation=cv2.INTER_AREA, fx=1 / resize_ratio,
-                                    fy=1 / resize_ratio, )
+        warped_image = cv2.resize(
+            warped_image,
+            (0, 0),
+            interpolation=cv2.INTER_AREA,
+            fx=1 / resize_ratio,
+            fy=1 / resize_ratio,
+        )
 
     # Only for non ID card document
     result = cv2.GaussianBlur(warped_image, (3, 3), 5)
@@ -66,12 +77,12 @@ def scan(path, ):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--from_dir", dest='from_dir', default='./data')
-    parser.add_argument("--to_dir", dest='to_dir', default='./output')
+    parser.add_argument("--from_dir", dest="from_dir", default="./data/images/segment")
+    parser.add_argument("--to_dir", dest="to_dir", default="./output")
     args = parser.parse_args()
 
-    success_dir = os.path.join(args.to_dir, 'success')
-    fail_dir = os.path.join(args.to_dir, 'fail')
+    success_dir = os.path.join(args.to_dir, "success")
+    fail_dir = os.path.join(args.to_dir, "fail")
 
     pathlib.Path(success_dir).mkdir(parents=True, exist_ok=True)
     pathlib.Path(fail_dir).mkdir(parents=True, exist_ok=True)
@@ -82,7 +93,7 @@ if __name__ == "__main__":
         if os.path.isdir(filepath):
             continue
         else:
-            if not filepath.endswith('jpg'):
+            if not filepath.endswith("jpg"):
                 continue
         ok, result = scan(filepath)
 
@@ -91,4 +102,4 @@ if __name__ == "__main__":
         else:
             path = os.path.join(fail_dir, file)
         cv2.imwrite(path, result)
-        print(f"{i}/{len(files)}", end='\r', flush=True)
+        print(f"{i}/{len(files)}", end="\r", flush=True)
