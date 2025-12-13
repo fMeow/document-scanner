@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "doc-scanner"
+version = "0.0.3"
+description = "A document scanner based on openCV3 and scikit-image"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Guoli Lyu", email = "guoli-lyu@outlook.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "numpy>=2.0",
+    "scikit-image>=0.23.0",
+    "opencv-python>=4.10.0",
+    "pandas>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/dantetemplar/updated-fMeow-document-scanner"
+Repository = "https://github.com/dantetemplar/updated-fMeow-document-scanner"
+Issues = "https://github.com/dantetemplar/updated-fMeow-document-scanner/issues"
+
+[tool.setuptools]
+packages = {find = {}}
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md"]
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = ["I", "UP", "PL"]
+lint.extend-ignore = ["PLC0415", "PLR"]
+target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+

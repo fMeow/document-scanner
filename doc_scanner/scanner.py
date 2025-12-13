@@ -1,14 +1,15 @@
+import itertools
+
 import cv2
 import numpy as np
-import itertools
-from skimage.transform import hough_line_peaks, hough_line
-from doc_scanner.math_utils import points2line, find_y_on_lines, intersection_cartesian, find_points_on_lines
-from doc_scanner.model import Intersection, Frame
-from doc_scanner.transform import four_point_transform
+from skimage.transform import hough_line, hough_line_peaks
+
+from doc_scanner.entities import Frame, Intersection
+from doc_scanner.math_utils import find_points_on_lines, four_point_transform, intersection_cartesian, points2line
 
 
 class scanner:
-    def __init__(self, image: np.array):
+    def __init__(self, image: np.ndarray):
         if len(image.shape) != 2:
             raise ValueError("Image should be a single channel 2D array")
         self.image = image
@@ -21,8 +22,16 @@ class scanner:
         self.detect_corner()
         # return self.warp()
 
-    def preprocess(self, kernel_size=15, intensity_lower=0, intensity_upper=255, canny_lower=10, canny_upper=70,
-                   erode_ks=3, dilate_ks=15):
+    def preprocess(
+        self,
+        kernel_size=15,
+        intensity_lower=0,
+        intensity_upper=255,
+        canny_lower=10,
+        canny_upper=70,
+        erode_ks=3,
+        dilate_ks=15,
+    ):
         """Filter and edge detection given a 2D digital image array
         1. Blur
         1. Histogram equalization
@@ -83,9 +92,9 @@ class scanner:
         # -------------------- scikit-image hough line transform --------------------
         theta = np.linspace(-np.pi * 1 / 4, np.pi * 3 / 4, 180)
         h, theta, distance = hough_line(self.edges_img, theta)
-        hits, phi, rho = hough_line_peaks(h, theta, distance, min_distance=10, min_angle=50,
-                                          threshold=threshold * h.max(),
-                                          num_peaks=np.inf)
+        hits, phi, rho = hough_line_peaks(
+            h, theta, distance, min_distance=10, min_angle=50, threshold=threshold * h.max(), num_peaks=np.inf
+        )
         lines = list(zip(phi, rho))
         # -------------------- OpenCV hough line transform --------------------
         # lines = cv2.HoughLines(self.edges_img.astype(np.uint8), 1, np.pi / 180, threshold).reshape(-1, 2)
@@ -96,24 +105,24 @@ class scanner:
         for ix, (phi, _) in enumerate(lines):
             if abs(phi) < err or abs(phi - np.pi) < err:
                 # vertical
-                self.lines['v'].append(lines[ix])
+                self.lines["v"].append(lines[ix])
             elif abs(phi - np.pi / 2) < err:
                 # horizontal
-                self.lines['h'].append(lines[ix])
+                self.lines["h"].append(lines[ix])
             else:
                 # irrelevant lines
-                self.lines['o'].append(lines[ix])
+                self.lines["o"].append(lines[ix])
         return self.lines
 
     def calc_intersections(self):
-        """ Compute connectivity given a horizontal line and vertical line in polar coordination.
+        """Compute connectivity given a horizontal line and vertical line in polar coordination.
         1. convert lines to cartesian coordination
         2. find intersection in cartesian coordination
         3.
 
         :return:
         """
-        combinations = list(itertools.product(self.lines['v'], self.lines['h']))
+        combinations = list(itertools.product(self.lines["v"], self.lines["h"]))
         if len(combinations) == 0:
             self.intersections = list()
             return self.intersections
@@ -135,7 +144,6 @@ class scanner:
         return self.intersections
 
     def calc_connectivity(self):
-
         for intersection in self.intersections:
             intersection.image = self.edges_img_dilated
             intersection.connectivity()
@@ -152,30 +160,30 @@ class scanner:
                     corner[Intersection.ORIENTATION_ORDER[ix]].append(intersection)
 
         possible_rectangle = list()
-        for top_left in corner['top-left']:
-
+        for top_left in corner["top-left"]:
             bottom_left_candidates = list()
-            for bottom_left in corner['bottom-left']:
+            for bottom_left in corner["bottom-left"]:
                 if bottom_left == top_left:
                     continue
                 if bottom_left.line_v == top_left.line_v:
                     bottom_left_candidates.append(bottom_left)
 
             top_right_candidates = list()
-            for top_right in corner['top-right']:
+            for top_right in corner["top-right"]:
                 if top_right == top_left:
                     continue
                 if top_right.line_h == top_left.line_h:
                     top_right_candidates.append(top_right)
 
             combinations = list(itertools.product(top_right_candidates, bottom_left_candidates))
-            for bottom_right in corner['bottom-right']:
+            for bottom_right in corner["bottom-right"]:
                 if bottom_right == top_left:
                     continue
                 for top_right, bottom_left in combinations:
                     if bottom_right.line_v == top_right.line_v and bottom_right.line_h == bottom_left.line_h:
-                        frame = Frame(top_left, top_right, bottom_right, bottom_left,
-                                      image_shape=self.edges_img_dilated.shape)
+                        frame = Frame(
+                            top_left, top_right, bottom_right, bottom_left, image_shape=self.edges_img_dilated.shape
+                        )
                         if frame.relative_area() > relative_area_threshold:
                             possible_rectangle.append(frame)
 
@@ -186,13 +194,13 @@ class scanner:
         return possible_rectangle
 
     def coordinates(self, image=None, scale=1):
-        if not hasattr(self, 'corners'):
-            raise KeyError('make sure corners has been detected before warp')
+        if not hasattr(self, "corners"):
+            raise KeyError("make sure corners has been detected before warp")
         if self.corners:
             if image is None:
                 image = self.image
             elif not (np.array(image.shape[0:2]) * scale - np.array(self.image.shape[0:2])).any():
-                raise ValueError("image should be in shape {}".format(self.image.shape[0:2]))
+                raise ValueError(f"image should be in shape {self.image.shape[0:2]}")
             coordinates = np.array(self.corners.coordinates()) * scale
         else:
             raise ValueError("Fail to find possible rectangle")
@@ -202,60 +210,3 @@ class scanner:
         coordinates = self.coordinates(image, scale)
         self.warped = four_point_transform(image, coordinates)
         return self.warped
-
-    def plot_lines(self, ax):
-        x = (0, self.image.shape[1])
-        for orientation, lines in self.lines.items():
-            y = find_y_on_lines(lines, x)
-            if orientation == 'v':
-                color = 'r'
-            elif orientation == 'h':
-                color = 'g'
-            else:
-                color = 'k'
-            for _y in y:
-                ax.plot(x, _y, '-{}'.format(color))
-
-    def focus_on_intersection(self, intersection: Intersection, ax, size=50):
-        """Zoom in to have a close look on given intersection
-
-        :param intersection:
-        :param ax:
-        :param size:
-        :return:
-        """
-        ax.set_xlim((intersection.intersection[0] - size, intersection.intersection[0] + size))
-        ax.set_ylim((intersection.intersection[1] - size, intersection.intersection[1] + size))
-
-    def reset_plot_view(self, ax):
-        ax.set_xlim((0, self.image.shape[1]))
-        ax.set_ylim((self.image.shape[0], 0))
-
-    def plot_corners(self, ax):
-        if self.corners:
-            for corner in self.corners.coordinates():
-                ax.plot(corner[0], corner[1], 'cx', ms=20)
-
-    def plot_around_intersection(self, intersection: Intersection, edges=True, size=50, ax=None):
-        """plot image around given intersection
-
-        :param intersection:
-        :param edges:
-        :param size:
-        :return:
-        """
-        # TODO check intersection inside image
-        from matplotlib import pyplot as plt
-        if ax is None:
-            ax = plt.figure().axes
-
-        if edges:
-            ax.imshow(self.edges_img)
-        else:
-            ax.imshow(self.image)
-
-        ax.plot(intersection.intersection, 'cx', ms=20)
-        ax.set_xlim((intersection.intersection[0] - size, intersection.intersection[0] + size))
-        ax.set_ylim((intersection.intersection[1] - size, intersection.intersection[1] + size))
-        ax.set_axis_off()
-        ax.set_title('Detected lines(Intensity)')
