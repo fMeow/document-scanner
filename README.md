@@ -2,6 +2,10 @@
 
 Document-Scanner is open-source python package to scan, segment and tranform images of documents as if the documents is scanned by a scanner. It includes predefined pipelines on preprocessing, frame detection, transformation and post processing to add styles.
 
+<p align="center">
+<img src="https://github.com/user-attachments/assets/5f924470-53d5-4e9c-8e24-efaab99bdce5" />
+</p>
+
 ## Pipeline
 
 1. Convert to HSV color space
