@@ -1,3 +1,16 @@
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "doc-scanner",
+#     "numpy>=2.0",
+#     "opencv-python>=4.10.0",
+#     "pandas>=2.0.0",
+#     "scikit-image>=0.23.0",
+# ]
+#
+# [tool.uv.sources]
+# doc-scanner = { git = "https://github.com/fMeow/document-scanner" }
+# ///
 import argparse
 import os
 import pathlib

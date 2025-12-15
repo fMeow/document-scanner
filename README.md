@@ -43,16 +43,16 @@ Document-Scanner is open-source python package to scan, segment and tranform ima
 
 ## Installation
 
-Install directly from GitHub:
+Add directly from GitHub with **uv** as a dependency:
 
 ```bash
-pip install git+https://github.com/dantetemplar/updated-fMeow-document-scanner
+uv add "doc-scanner @ git+https://github.com/fMeow/document-scanner"
 ```
 
-Or using uv:
+Or using pip:
 
 ```bash
-uv pip install git+https://github.com/dantetemplar/updated-fMeow-document-scanner
+pip install git+https://github.com/fMeow/document-scanner
 ```
 
 The minimum required dependencies to run document-scanner are:
@@ -100,10 +100,15 @@ else:
 
 ### Command-Line Script
 
-For batch processing, use the provided script (you can copy it to your project and run it):
+For batch processing, use the provided script :
 
 ```bash
 uv run scripts/scan.py --from_dir ./data/images/segment --to_dir ./output
+```
+
+You can copy it to your project and run it as a standalone script:
+```bash
+uv run --script scripts/scan.py --from_dir ./data/images/segment --to_dir ./output
 ```
 
 ## Contributing
