@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=2.0",
-    "scikit-image>=0.23.0",
+    "scikit-image>=0.24.0",
     "opencv-python>=4.10.0",
     "pandas>=2.0.0",
 ]
